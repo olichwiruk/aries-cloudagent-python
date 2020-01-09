@@ -9,7 +9,7 @@ from marshmallow import fields, Schema
 
 from ...connections.models.connection_record import ConnectionRecord
 from ...holder.base import BaseHolder
-from ...messaging.valid import INDY_CRED_DEF_ID, INDY_REV_REG_ID, INDY_SCHEMA_ID
+from ...messaging.valid import INDY_CRED_DEF_ID, INDY_REV_REG_ID, INDY_SCHEMA_ID, UUID4
 from ...storage.error import StorageNotFoundError
 from ...wallet.error import WalletNotFoundError
 
@@ -107,9 +107,16 @@ class WitnessSchema(Schema):
 class CredentialSchema(Schema):
     """Result schema for a credential query."""
 
+    attrs = fields.Dict(
+        description="Credential attributes",
+    )
     schema_id = fields.Str(
         description="Schema identifier",
         **INDY_SCHEMA_ID
+    )
+    referent = fields.Str(
+        description="Credential referent",
+        **UUID4
     )
     cred_def_id = fields.Str(
         description="Credential definition identifier",
@@ -119,17 +126,9 @@ class CredentialSchema(Schema):
         description="Revocation registry identifier",
         **INDY_REV_REG_ID
     )
-    values = fields.Dict(
-        keys=fields.Str(
-            description="Attribute name"
-        ),
-        values=fields.Nested(RawEncCredAttrSchema),
-        description="Attribute names mapped to their raw and encoded values"
+    cred_rev_id = fields.Str(
+        description="Credential revocation identifier"
     )
-    signature = fields.Dict(description="Digital signature")
-    signature_correctness_proof = fields.Dict(description="Signature correctness proof")
-    rev_reg = fields.Nested(RevRegSchema)
-    witness = fields.Nested(WitnessSchema)
 
 
 class CredentialListSchema(Schema):
