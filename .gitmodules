@@ -1,0 +1,4 @@
+[submodule "aries-acapy-plugin-toolbox"]
+	path = aries-acapy-plugin-toolbox
+	url = https://github.com/THCLab/aries-acapy-plugin-toolbox
+	branch = development

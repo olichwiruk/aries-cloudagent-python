@@ -6,10 +6,16 @@ ADD requirements*.txt ./
 
 RUN pip3 install --no-cache-dir -r requirements.txt -r requirements.dev.txt
 
-COPY . .
+COPY aries_cloudagent ./aries_cloudagent
+COPY aries-acapy-plugin-toolbox ./aries-acapy-plugin-toolbox
+COPY bin ./bin
+COPY README.md ./
+COPY setup.py ./
+COPY startup.sh ./
+
 RUN pip3 install --no-cache-dir -e ".[indy]"
-# ADD env ./env
+RUN /bin/bash -c "python3 -m venv env"
 RUN /bin/bash -c "source env/bin/activate"
-RUN pip3 install git+https://github.com/hyperledger/aries-acapy-plugin-toolbox.git@master#egg=acapy-plugin-toolbox
+RUN /bin/bash -c "pip3 install -e /home/indy/aries-acapy-plugin-toolbox"
 
 USER root
