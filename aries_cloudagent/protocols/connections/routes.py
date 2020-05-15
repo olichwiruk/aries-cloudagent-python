@@ -281,6 +281,35 @@ async def connections_create_invitation(request: web.BaseRequest):
     return web.json_response(result)
 
 
+@docs(tags=["connection"], 
+      summary="Create an invitation url which has admin rights")
+@response_schema(InvitationResultSchema(), 200)
+async def connections_create_admin_invitation_url(request: web.BaseRequest):
+    """
+    Request handler for creating invitation url with admin rights
+
+    Args:
+        request: aiohttp request object
+
+    Returns:
+        Brand new invitation url with admin rights
+    """
+    context = request.app["request_context"]
+    base_url = context.settings.get("invite_base_url")
+
+    connection_mgr = ConnectionManager(context)
+    connection, invitation = await connection_mgr.create_invitation(
+        their_role=context.settings.get("debug.invite_role"),
+        my_label=context.settings.get("debug.invite_label"),
+        multi_use=context.settings.get("debug.invite_multi_use", False),
+        public=context.settings.get("debug.invite_public", False),
+    )   
+    result = {
+        "invitation_url": invitation.to_url(base_url),
+    }
+
+    return web.json_response(result)
+
 @docs(
     tags=["connection"],
     summary="Receive a new connection invitation",
@@ -506,6 +535,7 @@ async def register(app: web.Application):
             web.get("/connections/{id}", connections_retrieve),
             web.post("/connections/create-static", connections_create_static),
             web.post("/connections/create-invitation", connections_create_invitation),
+            web.post("/connections/create-admin-invitation-url", connections_create_admin_invitation_url),
             web.post("/connections/receive-invitation", connections_receive_invitation),
             web.post(
                 "/connections/{id}/accept-invitation", connections_accept_invitation
