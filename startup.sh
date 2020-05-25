@@ -7,6 +7,7 @@ aca-py start \
     --auto-respond-credential-proposal --auto-respond-credential-offer --auto-respond-credential-request --auto-store-credential \
     --auto-respond-presentation-proposal --auto-respond-presentation-request --auto-verify-presentation \
     --invite --invite-role admin --invite-label "$AGENT_NAME (admin)" \
+    --admin 0.0.0.0 $SWAGGER_INBOUND_PORT --admin-insecure-mode \
     --genesis-url $GENESIS_URL \
     --wallet-type indy \
     --wallet-name $AGENT_NAME \
