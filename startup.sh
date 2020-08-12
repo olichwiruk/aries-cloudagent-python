@@ -11,4 +11,5 @@ aca-py start \
     --genesis-url $GENESIS_URL \
     --wallet-type indy \
     --wallet-name $AGENT_NAME \
-    --plugin acapy_plugin_toolbox
+    --plugin acapy_plugin_toolbox \
+    --plugin services
