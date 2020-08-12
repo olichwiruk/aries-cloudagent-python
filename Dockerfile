@@ -8,6 +8,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt -r requirements.dev.txt -r r
 
 COPY aries_cloudagent ./aries_cloudagent
 COPY aries-acapy-plugin-toolbox ./aries-acapy-plugin-toolbox
+COPY aries-services-plugin/services ./aries-acapy-plugin-toolbox/services
 COPY bin ./bin
 COPY README.md ./
 COPY setup.py ./
