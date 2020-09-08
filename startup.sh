@@ -1,6 +1,7 @@
 aca-py start \
     -it http 0.0.0.0 80 \
     -ot http \
+    -ot ws \
     -e $ACAPY_ENDPOINT \
     --label "$AGENT_NAME" \
     --auto-accept-requests --auto-ping-connection \
@@ -8,6 +9,7 @@ aca-py start \
     --auto-respond-presentation-proposal --auto-respond-presentation-request --auto-verify-presentation \
     --invite --invite-role admin --invite-label "$AGENT_NAME" \
     --admin 0.0.0.0 $SWAGGER_INBOUND_PORT --admin-insecure-mode \
+    --webhook-url $WEBHOOK_URL \
     --genesis-url $GENESIS_URL \
     --wallet-type indy \
     --wallet-name "$AGENT_NAME" \
