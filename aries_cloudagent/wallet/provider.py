@@ -11,16 +11,30 @@ LOGGER = logging.getLogger(__name__)
 class WalletProvider(BaseProvider):
     """Provider for the default configurable wallet classes."""
 
+    def __init__(self):
+        self.cached_wallets = {}
+
     WALLET_TYPES = {
         "basic": "aries_cloudagent.wallet.basic.BasicWallet",
         "indy": "aries_cloudagent.wallet.indy.IndyWallet",
+        "http": "aries_cloudagent.wallet.http.HttpWallet",
     }
 
     async def provide(self, settings: BaseSettings, injector: BaseInjector):
         """Create and open the wallet instance."""
-
+        # print("Provide Wallet")
+        # (Krzosa)
+        # wallet_type = settings.get_value("wallet.type", default="basic").lower()
+        # wallet_class = self.WALLET_TYPES.get(wallet_type, wallet_type)
         wallet_type = settings.get_value("wallet.type", default="basic").lower()
+        # print("wallet type to inject: ", wallet_type)
+
+        if wallet_type in self.cached_wallets:
+            # print("Cached Wallets ", self.cached_wallets)
+            return self.cached_wallets[wallet_type]
+
         wallet_class = self.WALLET_TYPES.get(wallet_type, wallet_type)
+        print("Creating a wallet: ", wallet_type, wallet_class)
 
         LOGGER.info("Opening wallet type: %s", wallet_type)
 
@@ -47,4 +61,7 @@ class WalletProvider(BaseProvider):
             LOGGER.info(
                 "Rotated wallet %s master encryption key", wallet_cfg.get("name", "")
             )
+
+        self.cached_wallets[wallet_type] = wallet
+
         return wallet
