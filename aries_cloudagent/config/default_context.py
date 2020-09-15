@@ -120,9 +120,7 @@ class DefaultContextBuilder(ContextBuilder):
         )
         context.injector.bind_provider(
             BaseTailsServer,
-            ClassProvider(
-                "aries_cloudagent.tails.indy_tails_server.IndyTailsServer",
-            ),
+            ClassProvider("aries_cloudagent.tails.indy_tails_server.IndyTailsServer",),
         )
 
         # Register default pack format
