@@ -65,17 +65,15 @@ class DefaultContextBuilder(ContextBuilder):
         )
         context.injector.bind_provider(
             BaseWallet,
-            CachedProvider(
-                StatsProvider(
-                    WalletProvider(),
-                    (
-                        "sign_message",
-                        "verify_message",
-                        # "pack_message",
-                        # "unpack_message",
-                        "get_local_did",
-                    ),
-                )
+            StatsProvider(
+                WalletProvider(),
+                (
+                    "sign_message",
+                    "verify_message",
+                    # "pack_message",
+                    # "unpack_message",
+                    "get_local_did",
+                ),
             ),
         )
 
@@ -122,9 +120,7 @@ class DefaultContextBuilder(ContextBuilder):
         )
         context.injector.bind_provider(
             BaseTailsServer,
-            ClassProvider(
-                "aries_cloudagent.tails.indy_tails_server.IndyTailsServer",
-            ),
+            ClassProvider("aries_cloudagent.tails.indy_tails_server.IndyTailsServer",),
         )
 
         # Register default pack format
