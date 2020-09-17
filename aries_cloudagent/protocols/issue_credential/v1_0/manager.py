@@ -601,14 +601,14 @@ class CredentialManager:
                 self.context, cred_ex_record.connection_id
             )
             connection_verkey = connection_record.invitation_key
-            keyinfo = await wallet.create_signing_key()
+            public_did = await wallet.get_public_did()
             print("connection_verkey ", connection_verkey)
 
             credential_bytes = str_to_b64(
                 json.dumps(credential), urlsafe=True, pad=False
             )
             credential_signature = await wallet.sign_message(
-                credential_bytes, keyinfo.verkey
+                credential_bytes, public_did.verkey
             )
             print("Credential Signature bytes")
             credential_signature_base64 = bytes_to_b64(
@@ -627,6 +627,7 @@ class CredentialManager:
 
             credential.update(
                 {
+                    "id": public_did.did,
                     "proof": {"jws": credential_signature_base64},
                 }
             )
