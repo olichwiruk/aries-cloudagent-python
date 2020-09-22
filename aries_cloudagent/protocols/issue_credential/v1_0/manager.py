@@ -570,6 +570,11 @@ class CredentialManager:
 
             issuer: BaseIssuer = await self.context.inject(BaseIssuer)
             wallet: BaseWallet = await self.context.inject(BaseWallet)
+
+            connection_record: ConnectionRecord = await ConnectionRecord.retrieve_by_id(
+                self.context, cred_ex_record.connection_id
+            )
+
             credential = {
                 "@context": [
                     "https://www.w3.org/2018/credentials/v1",
@@ -577,7 +582,7 @@ class CredentialManager:
                 ],
                 "id": "https://example.com/credentials/1872",
                 "type": ["VerifiableCredential", "ConsentCredential"],
-                "issuer": "https://example.edu/issuers/565049",
+                "issuer": f"did:example:{connection_record.my_did}",
                 "issuanceDate": "2010-01-01T19:23:24Z",
                 "credentialSubject": credential_values,
             }
@@ -597,9 +602,6 @@ class CredentialManager:
             #     tails_path,
             # )
 
-            connection_record: ConnectionRecord = await ConnectionRecord.retrieve_by_id(
-                self.context, cred_ex_record.connection_id
-            )
             connection_verkey = connection_record.invitation_key
             keyinfo = await wallet.create_signing_key()
             print("connection_verkey ", connection_verkey)
