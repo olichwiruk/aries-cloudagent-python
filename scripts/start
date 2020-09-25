@@ -1,0 +1,4 @@
+PORTS="8130:8130 8131:8131" sudo ./run_docker start \
+    -it http 0.0.0.0 8130 \
+    -ot http \
+    --admin 0.0.0.0 8131 --admin-insecure-mode  
