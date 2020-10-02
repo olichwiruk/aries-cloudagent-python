@@ -467,6 +467,7 @@ class CredentialManager:
 
         return cred_ex_record
 
+    # thcf
     async def issue_credential(
         self,
         cred_ex_record: V10CredentialExchange,
