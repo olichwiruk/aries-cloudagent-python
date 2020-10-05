@@ -12,6 +12,7 @@ from aiohttp_apispec import (
 
 from marshmallow import fields, validate, Schema
 from .base import PublicDataStorage
+from .error import *
 
 
 class SaveRecordSchema(Schema):
@@ -29,7 +30,11 @@ async def save_record(request: web.BaseRequest):
     print("payload: ", payload)
 
     public_storage: PublicDataStorage = await context.inject(PublicDataStorage)
-    payload_id = await public_storage.save(payload)
+
+    try:
+        payload_id = await public_storage.save(payload)
+    except PublicDataStorageError as err:
+        raise web.HTTPError(reason=err.roll_up)
 
     return web.json_response({"payload_id": payload_id})
 
@@ -45,7 +50,11 @@ async def get_record(request: web.BaseRequest):
     assert payload_id != None
 
     public_storage: PublicDataStorage = await context.inject(PublicDataStorage)
-    result = await public_storage.read(payload_id)
+
+    try:
+        result = await public_storage.read(payload_id)
+    except PublicDataStorageError as err:
+        raise web.HTTPError(reason=err.roll_up)
 
     return web.json_response({"result": result})
 
@@ -64,7 +73,7 @@ async def set_settings(request: web.BaseRequest):
     context = request.app["request_context"]
     body = await request.json()
 
-    public_storage_type = body.get("public_storage_type", None)
+    public_storage_type: str = body.get("public_storage_type", None)
     settings = body.get("settings", None)
 
     if settings != None:
@@ -84,13 +93,15 @@ async def set_settings(request: web.BaseRequest):
 async def get_settings(request: web.BaseRequest):
     context = request.app["request_context"]
     registered_types = context.settings.get("public_storage_registered_types")
+    active_storage_type = context.settings.get("public_storage_type")
     response_message = {}
 
     for key in registered_types:
-        public_storage: PublicDataStorage = await context.inject(
-            PublicDataStorage, {"public_storage_type", key}
-        )
+        context.settings.set_value("public_storage_type", key)
+        public_storage = await context.inject(PublicDataStorage)
         response_message.update({key: public_storage.settings})
+
+    context.settings.set_value("public_storage_type", active_storage_type)
 
     return web.json_response(response_message)
 
@@ -149,7 +160,11 @@ async def register(app: web.Application):
             web.post("/pds/save", save_record),
             web.post("/pds/settings", set_settings),
             web.post("/pds/activate", set_active_storage_type),
-            web.get("/pds", get_storage_types),
+            web.get(
+                "/pds",
+                get_storage_types,
+                allow_head=False,
+            ),
             web.get(
                 "/pds/settings",
                 get_settings,
@@ -158,6 +173,7 @@ async def register(app: web.Application):
             web.get(
                 "/pds/{payload_id}",
                 get_record,
+                allow_head=False,
             ),
         ]
     )
