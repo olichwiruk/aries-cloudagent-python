@@ -142,6 +142,7 @@ Full version:
       - von_von
 ```
 4. New endpoints should appear inside the acapy swagger admin API under http://localhost:8150
+5. Tests are located in the aries-services-plugin/controllers
 
 
 

@@ -59,29 +59,47 @@ async def get_record(request: web.BaseRequest):
     return web.json_response({"result": result})
 
 
-class SaveRecordSchema(Schema):
-    public_storage_type = fields.Str(required=False)
+class SaveSettingsSchema(Schema):
     settings = fields.Dict(required=False)
 
 
 @docs(
     tags=["Public Data Storage"],
     summary="Set and configure current PublicDataStorage",
+    description="""Example of a correct schema:
+    {
+        "settings":
+        {
+            "local": {
+                "no_configuration_needed": "yes-1234"
+            },
+            "data_vault": {
+                "no_configuration_needed": "yes-1234"
+            },
+            "own_your_data": {
+                "client_id": "test-1234",
+                "client_secret": "test-1234",
+                "grant_type": "client_credentials"
+            }
+        }
+    }
+    """,
 )
-@request_schema(SaveRecordSchema())
+@request_schema(SaveSettingsSchema())
 async def set_settings(request: web.BaseRequest):
     context = request.app["request_context"]
     body = await request.json()
+    settings: dict = body.get("settings", None)
 
-    public_storage_type: str = body.get("public_storage_type", None)
-    settings = body.get("settings", None)
+    if settings == None:
+        raise web.HTTPNotFound(reason="Settings schema is empty")
 
-    if settings != None:
+    for key in settings:
         public_storage: PublicDataStorage = await context.inject(
-            PublicDataStorage, {"public_storage_type", public_storage_type}
+            PublicDataStorage, {"public_storage_type": key}
         )
-        public_storage.settings = settings
-        print("public_storage.settings, ", public_storage.settings)
+        public_storage.settings = settings.get(key)
+        print("(key, public_storage.settings): ", key, public_storage.settings)
 
     return web.json_response({"success": "settings_updated"})
 
