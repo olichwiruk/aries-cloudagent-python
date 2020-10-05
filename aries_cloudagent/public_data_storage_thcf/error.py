@@ -15,3 +15,15 @@ class PublicDataStorageDuplicateError(PublicDataStorageError):
 
 class PublicDataStorageSearchError(PublicDataStorageError):
     """General exception during record search."""
+
+
+class PublicDataStorageLackingConfigurationError(PublicDataStorageError):
+    """When lack of configuration is detected."""
+
+
+class PublicDataStorageInvalidConfigurationError(PublicDataStorageError):
+    """When configuration contains fields with invalid information."""
+
+
+class PublicDataStorageServerError(PublicDataStorageError):
+    """When configuration contains fields with invalid information."""

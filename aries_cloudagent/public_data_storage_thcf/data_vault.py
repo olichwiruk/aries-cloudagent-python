@@ -10,6 +10,7 @@ DATA_VAULT = "http://ocadatavault/api/v1/files"
 class DataVault(PublicDataStorage):
     def __init__(self):
         super().__init__()
+        self.settings = {"no_configuration": "needed"}
 
     async def read(self, id: str) -> str:
         """
@@ -32,14 +33,6 @@ class DataVault(PublicDataStorage):
         result = None
         async with ClientSession() as session:
             result = await session.post(url=DATA_VAULT, data=data)
-            result = await result.text()
-            print(result)
-
-        return result
-
-    async def DEBUGread_all(self):
-        async with ClientSession() as session:
-            result = await session.get(DATA_VAULT)
             result = await result.text()
             print(result)
 

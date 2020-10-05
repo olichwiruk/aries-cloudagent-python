@@ -8,6 +8,7 @@ class LocalDataStorage(PublicDataStorage):
     def __init__(self):
         super().__init__()
         self.storage = {}
+        self.settings = {"no_configuration": "needed"}
 
     async def read(self, id: str) -> str:
         """
