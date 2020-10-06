@@ -10,7 +10,7 @@ class LocalDataStorage(PublicDataStorage):
         self.storage = {}
         self.settings = {"no_configuration_needed": "yes"}
 
-    async def read(self, id: str) -> str:
+    async def load(self, id: str) -> str:
         """
         returns: None, on record not found
         """

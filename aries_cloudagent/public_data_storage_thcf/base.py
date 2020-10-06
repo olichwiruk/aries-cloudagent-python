@@ -14,7 +14,7 @@ class PublicDataStorage(ABC):
         """
 
     @abstractmethod
-    async def read(self, id: str) -> str:
+    async def load(self, id: str) -> str:
         """
         Returns: data represented by id
         """

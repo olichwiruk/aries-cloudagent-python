@@ -19,6 +19,10 @@ class SaveRecordSchema(Schema):
     payload = fields.Str(required=False)
 
 
+class SetActiveStorageTypeSchema(Schema):
+    type = fields.Str(required=True)
+
+
 @docs(tags=["Public Data Storage"], summary="Save data in a public data storage")
 @request_schema(SaveRecordSchema())
 async def save_record(request: web.BaseRequest):
@@ -52,7 +56,7 @@ async def get_record(request: web.BaseRequest):
     public_storage: PublicDataStorage = await context.inject(PublicDataStorage)
 
     try:
-        result = await public_storage.read(payload_id)
+        result = await public_storage.load(payload_id)
     except PublicDataStorageError as err:
         raise web.HTTPError(reason=err.roll_up)
 
@@ -66,7 +70,8 @@ class SaveSettingsSchema(Schema):
 @docs(
     tags=["Public Data Storage"],
     summary="Set and configure current PublicDataStorage",
-    description="""Example of a correct schema:
+    description="""
+    Example of a correct schema:
     {
         "settings":
         {
@@ -98,7 +103,7 @@ async def set_settings(request: web.BaseRequest):
         public_storage: PublicDataStorage = await context.inject(
             PublicDataStorage, {"public_storage_type": key}
         )
-        public_storage.settings = settings.get(key)
+        public_storage.settings.update(settings.get(key))
         print("(key, public_storage.settings): ", key, public_storage.settings)
 
     return web.json_response({"success": "settings_updated"})
@@ -124,13 +129,10 @@ async def get_settings(request: web.BaseRequest):
     return web.json_response(response_message)
 
 
-class SetActiveStorageTypeSchema(Schema):
-    type = fields.Str(required=True)
-
-
 @docs(
     tags=["Public Data Storage"],
-    summary="Set a public data storage type by name, for example: 'local', get possible types by calling 'GET settings' endpoint",
+    summary="Set a public data storage type by name",
+    description="for example: 'local', get possible types by calling 'GET /pds' endpoint",
 )
 @request_schema(SetActiveStorageTypeSchema())
 async def set_active_storage_type(request: web.BaseRequest):
