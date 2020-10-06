@@ -69,7 +69,7 @@ class OwnYourDataVault(PublicDataStorage):
             self.token = token
             print("self.token", self.token)
 
-    async def read(self, id: str) -> str:
+    async def load(self, id: str) -> str:
         """
         TODO: Errors checking
         """

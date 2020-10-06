@@ -12,7 +12,7 @@ class DataVault(PublicDataStorage):
         super().__init__()
         self.settings = {"no_configuration_needed": "yes"}
 
-    async def read(self, id: str) -> str:
+    async def load(self, id: str) -> str:
         """
         Returns: None on record not found
         """
