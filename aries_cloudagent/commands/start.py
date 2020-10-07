@@ -47,11 +47,17 @@ def execute(argv: Sequence[str] = None):
     settings = get_settings(args)
     common_config(settings)
 
+    # thcf
+    settings["public_storage_type"] = "local"
+    settings["public_storage_registered_types"] = {
+        "local": "aries_cloudagent.public_data_storage_thcf.local.LocalDataStorage",
+        "data_vault": "aries_cloudagent.public_data_storage_thcf.data_vault.DataVault",
+        "own_your_data": "aries_cloudagent.public_data_storage_thcf.own_your_data.OwnYourDataVault",
+    }
+    print(settings)
+
     # set ledger to read only if explicitely specified
     settings["ledger.read_only"] = settings.get("read_only_ledger", False)
-
-    # (Krzosa)
-    print("Start.py Settings", settings)
 
     # Support WEBHOOK_URL environment variable
     webhook_url = os.environ.get("WEBHOOK_URL")

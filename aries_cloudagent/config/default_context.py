@@ -28,6 +28,10 @@ from ..wallet.base import BaseWallet
 from ..wallet.provider import WalletProvider
 
 
+from ..public_data_storage_thcf.base import PublicDataStorage
+from ..public_data_storage_thcf.provider import PublicDataStorageProvider
+
+
 class DefaultContextBuilder(ContextBuilder):
     """Default context builder."""
 
@@ -75,6 +79,12 @@ class DefaultContextBuilder(ContextBuilder):
                     "get_local_did",
                 ),
             ),
+        )
+
+        # THCF
+        context.injector.bind_provider(
+            PublicDataStorage,
+            PublicDataStorageProvider(),
         )
 
         context.injector.bind_provider(
@@ -164,6 +174,9 @@ class DefaultContextBuilder(ContextBuilder):
         plugin_registry.register_plugin("aries_cloudagent.messaging.schemas")
         plugin_registry.register_plugin("aries_cloudagent.revocation")
         plugin_registry.register_plugin("aries_cloudagent.wallet")
+
+        # thcf
+        plugin_registry.register_plugin("aries_cloudagent.public_data_storage_thcf")
 
         # Register external plugins
         for plugin_path in self.settings.get("external_plugins", []):

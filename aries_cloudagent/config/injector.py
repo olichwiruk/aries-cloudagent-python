@@ -83,6 +83,10 @@ class Injector(BaseInjector):
                     "No instance provided for class: {}".format(base_cls.__name__)
                 )
         elif not isinstance(result, base_cls) and self.enforce_typing:
+            print("result: ", result)
+            print("base_cls: ", base_cls)
+            print("self.enforce_typing: ", self.enforce_typing)
+            print("isinstance: ", isinstance(result, base_cls))
             raise InjectorError(
                 "Provided instance does not implement the base class: {}".format(
                     base_cls.__name__

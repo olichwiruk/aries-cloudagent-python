@@ -108,7 +108,11 @@ class ConnectionStaticResultSchema(OpenAPISchema):
 class ConnectionsListQueryStringSchema(OpenAPISchema):
     """Parameters and validators for connections list request query string."""
 
-    alias = fields.Str(description="Alias", required=False, example="Barry",)
+    alias = fields.Str(
+        description="Alias",
+        required=False,
+        example="Barry",
+    )
     initiator = fields.Str(
         description="Connection initiator",
         required=False,
@@ -140,7 +144,11 @@ class ConnectionsListQueryStringSchema(OpenAPISchema):
 class CreateInvitationQueryStringSchema(OpenAPISchema):
     """Parameters and validators for create invitation request query string."""
 
-    alias = fields.Str(description="Alias", required=False, example="Barry",)
+    alias = fields.Str(
+        description="Alias",
+        required=False,
+        example="Barry",
+    )
     auto_accept = fields.Boolean(
         description="Auto-accept connection (default as per configuration)",
         required=False,
@@ -156,7 +164,11 @@ class CreateInvitationQueryStringSchema(OpenAPISchema):
 class ReceiveInvitationQueryStringSchema(OpenAPISchema):
     """Parameters and validators for receive invitation request query string."""
 
-    alias = fields.Str(description="Alias", required=False, example="Barry",)
+    alias = fields.Str(
+        description="Alias",
+        required=False,
+        example="Barry",
+    )
     auto_accept = fields.Boolean(
         description="Auto-accept connection (defaults to configuration)",
         required=False,
@@ -212,7 +224,8 @@ def connection_sort_key(conn):
 
 
 @docs(
-    tags=["connection"], summary="Query agent-to-agent connections",
+    tags=["connection"],
+    summary="Query agent-to-agent connections",
 )
 @querystring_schema(ConnectionsListQueryStringSchema())
 @response_schema(ConnectionListSchema(), 200)
@@ -284,7 +297,8 @@ async def connections_retrieve(request: web.BaseRequest):
 
 
 @docs(
-    tags=["connection"], summary="Create a new connection invitation",
+    tags=["connection"],
+    summary="Create a new connection invitation",
 )
 @querystring_schema(CreateInvitationQueryStringSchema())
 @response_schema(InvitationResultSchema(), 200)
@@ -361,7 +375,8 @@ async def connections_create_admin_invitation_url(request: web.BaseRequest):
     return web.json_response(result)
 
 @docs(
-    tags=["connection"], summary="Receive a new connection invitation",
+    tags=["connection"],
+    summary="Receive a new connection invitation",
 )
 @querystring_schema(ReceiveInvitationQueryStringSchema())
 @request_schema(ReceiveInvitationRequestSchema())
@@ -400,7 +415,8 @@ async def connections_receive_invitation(request: web.BaseRequest):
 
 
 @docs(
-    tags=["connection"], summary="Accept a stored connection invitation",
+    tags=["connection"],
+    summary="Accept a stored connection invitation",
 )
 @match_info_schema(ConnIdMatchInfoSchema())
 @querystring_schema(AcceptInvitationQueryStringSchema())
@@ -437,7 +453,8 @@ async def connections_accept_invitation(request: web.BaseRequest):
 
 
 @docs(
-    tags=["connection"], summary="Accept a stored connection request",
+    tags=["connection"],
+    summary="Accept a stored connection request",
 )
 @match_info_schema(ConnIdMatchInfoSchema())
 @querystring_schema(AcceptRequestQueryStringSchema())
@@ -620,6 +637,7 @@ from ....wallet.util import (
     bytes_to_b64,
     str_to_b64,
 )
+from ....public_data_storage_thcf.base import PublicDataStorage
 
 
 class TestSchema(OpenAPISchema):
@@ -632,6 +650,7 @@ async def test_vs_js(request: web.BaseRequest):
     context = request.app["request_context"]
     body = await request.json()
     wallet: BaseWallet = await context.inject(BaseWallet)
+    storage: PublicDataStorage = await context.inject(PublicDataStorage)
 
     credential = {
         "@context": [
@@ -647,6 +666,14 @@ async def test_vs_js(request: web.BaseRequest):
             "alumniOf": "Example University",
         },
     }
+
+    print("TEST")
+    identi = await storage.save(credential)
+    print(identi)
+    retrieve = await storage.read(identi)
+    print(retrieve)
+    print("TEST")
+
     # wallet: BaseWallet = await context.inject(BaseWallet, {"wallet.type": "http"})
     # print("WALLET TYPE: ", wallet.type)
     # new_key: KeyInfo = await wallet.create_signing_key()
