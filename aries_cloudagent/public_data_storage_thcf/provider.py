@@ -14,6 +14,7 @@ class PublicDataStorageProvider(BaseProvider):
         storage_type = settings.get("public_storage_type", "local")
         registered_types = settings.get("public_storage_registered_types")
         print("PublicDataStorage type", storage_type)
+        print("registered types: ", registered_types)
 
         if storage_type not in self.cached_instances:
             storage_class = registered_types.get(storage_type)

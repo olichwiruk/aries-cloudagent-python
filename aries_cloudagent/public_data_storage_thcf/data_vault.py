@@ -1,7 +1,5 @@
 from .base import PublicDataStorage
 from .error import PublicDataStorageNotFoundError
-
-import requests
 from aiohttp import ClientSession, FormData
 
 DATA_VAULT = "http://ocadatavault/api/v1/files"

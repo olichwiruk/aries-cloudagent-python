@@ -51,8 +51,8 @@ def execute(argv: Sequence[str] = None):
     settings["public_storage_type"] = "local"
     settings["public_storage_registered_types"] = {
         "local": "aries_cloudagent.public_data_storage_thcf.local.LocalDataStorage",
-        "data_vault": "aries_cloudagent.public_data_storage_thcf.data_vault.DataVault",
-        "own_your_data": "aries_cloudagent.public_data_storage_thcf.own_your_data.OwnYourDataVault",
+        # "data_vault": "aries_cloudagent.public_data_storage_thcf.data_vault.DataVault",
+        # "own_your_data": "aries_cloudagent.public_data_storage_thcf.own_your_data.OwnYourDataVault",
     }
     print(settings)
 

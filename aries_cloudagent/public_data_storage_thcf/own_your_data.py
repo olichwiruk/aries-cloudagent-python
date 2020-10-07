@@ -13,7 +13,7 @@ API_ON_READ = API_DATA_VAULT + "/api/items"
 # "https://data-vault.eu/api/repos/dip.data/items"
 # TOKEN
 # {
-#   "access_token":"EdCNT1S2u0grli2YKMJxVA02ygtpzneeAbu_oT-76mM",
+#   "access_token":"1234-123",
 #   "token_type":"Bearer",
 #   "expires_in":7200,
 #   "created_at":1601638565,
