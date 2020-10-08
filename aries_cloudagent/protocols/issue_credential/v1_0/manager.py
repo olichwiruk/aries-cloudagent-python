@@ -617,7 +617,6 @@ class CredentialManager:
             credential_signature_base64 = bytes_to_b64(
                 credential_signature, urlsafe=False, pad=False
             )
-
             # signed = await sign_credential(
             #     credential,
             #     {
