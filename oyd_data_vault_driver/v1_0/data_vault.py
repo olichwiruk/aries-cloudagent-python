@@ -1,4 +1,4 @@
-from aries_cloudagent.public_data_storage_thcf.base import PublicDataStorage
+from aries_cloudagent.public_data_storage_thcf.base import PersonalDataStorage
 from aries_cloudagent.public_data_storage_thcf.error import *
 
 import json
@@ -23,7 +23,7 @@ API_ON_READ = API_DATA_VAULT + "/api/items"
 # {"id":1609914}
 
 
-class OYDDataVault(PublicDataStorage):
+class OYDDataVault(PersonalDataStorage):
     def __init__(self):
         super().__init__()
         self.token = None
@@ -41,11 +41,11 @@ class OYDDataVault(PublicDataStorage):
         client_secret = self.settings.get("client_secret")
 
         if client_id == None:
-            raise PublicDataStorageLackingConfigurationError(
+            raise PersonalDataStorageLackingConfigurationError(
                 "Please configure the plugin, Client_id is empty"
             )
         if client_secret == None:
-            raise PublicDataStorageLackingConfigurationError(
+            raise PersonalDataStorageLackingConfigurationError(
                 "Please configure the plugin, Client_secret is empty"
             )
 
@@ -59,7 +59,7 @@ class OYDDataVault(PublicDataStorage):
                 },
             )
             if result.status != 200:
-                raise PublicDataStorageServerError(
+                raise PersonalDataStorageServerError(
                     "Server Error, Could be that the connection is invalid or some other unforseen error, check if the server is up"
                 )
 

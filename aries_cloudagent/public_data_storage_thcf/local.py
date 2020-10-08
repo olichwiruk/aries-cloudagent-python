@@ -1,10 +1,10 @@
-from .base import PublicDataStorage
-from .error import PublicDataStorageNotFoundError
+from .base import BasePersonalDataStorage
+from .error import PersonalDataStorageNotFoundError
 
 import uuid
 
 
-class LocalDataStorage(PublicDataStorage):
+class LocalPersonalDataStorage(BasePersonalDataStorage):
     def __init__(self):
         super().__init__()
         self.storage = {}

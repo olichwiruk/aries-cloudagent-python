@@ -1,29 +1,29 @@
 from ..core.error import BaseError
 
 
-class PublicDataStorageError(BaseError):
+class PersonalDataStorageError(BaseError):
     """Base class for Storage errors."""
 
 
-class PublicDataStorageNotFoundError(PublicDataStorageError):
+class PersonalDataStorageNotFoundError(PersonalDataStorageError):
     """Record not found in storage."""
 
 
-class PublicDataStorageDuplicateError(PublicDataStorageError):
+class PersonalDataStorageDuplicateError(PersonalDataStorageError):
     """Duplicate record found in storage."""
 
 
-class PublicDataStorageSearchError(PublicDataStorageError):
+class PersonalDataStorageSearchError(PersonalDataStorageError):
     """General exception during record search."""
 
 
-class PublicDataStorageLackingConfigurationError(PublicDataStorageError):
+class PersonalDataStorageLackingConfigurationError(PersonalDataStorageError):
     """When lack of configuration is detected."""
 
 
-class PublicDataStorageInvalidConfigurationError(PublicDataStorageError):
+class PersonalDataStorageInvalidConfigurationError(PersonalDataStorageError):
     """When configuration contains fields with invalid information."""
 
 
-class PublicDataStorageServerError(PublicDataStorageError):
+class PersonalDataStorageServerError(PersonalDataStorageError):
     """When configuration contains fields with invalid information."""

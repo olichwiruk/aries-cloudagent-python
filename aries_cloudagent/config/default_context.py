@@ -28,8 +28,8 @@ from ..wallet.base import BaseWallet
 from ..wallet.provider import WalletProvider
 
 
-from ..public_data_storage_thcf.base import PublicDataStorage
-from ..public_data_storage_thcf.provider import PublicDataStorageProvider
+from ..public_data_storage_thcf.base import BasePersonalDataStorage
+from ..public_data_storage_thcf.provider import PersonalDataStorageProvider
 
 
 class DefaultContextBuilder(ContextBuilder):
@@ -83,8 +83,8 @@ class DefaultContextBuilder(ContextBuilder):
 
         # THCF
         context.injector.bind_provider(
-            PublicDataStorage,
-            PublicDataStorageProvider(),
+            BasePersonalDataStorage,
+            PersonalDataStorageProvider(),
         )
 
         context.injector.bind_provider(

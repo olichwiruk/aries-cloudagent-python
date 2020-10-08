@@ -1,11 +1,11 @@
-from .base import PublicDataStorage
-from .error import PublicDataStorageNotFoundError
+from .base import BasePersonalDataStorage
+from .error import PersonalDataStorageNotFoundError
 from aiohttp import ClientSession, FormData
 
 DATA_VAULT = "http://ocadatavault/api/v1/files"
 
 
-class DataVault(PublicDataStorage):
+class DataVault(BasePersonalDataStorage):
     def __init__(self):
         super().__init__()
         self.settings = {"no_configuration_needed": "yes"}

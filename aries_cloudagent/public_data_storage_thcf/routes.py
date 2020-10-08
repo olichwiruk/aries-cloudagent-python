@@ -11,7 +11,7 @@ from aiohttp_apispec import (
 )
 
 from marshmallow import fields, validate, Schema
-from .base import PublicDataStorage
+from .base import BasePersonalDataStorage
 from .error import *
 
 
@@ -23,8 +23,8 @@ class SetActiveStorageTypeSchema(Schema):
     type = fields.Str(required=True)
 
 
-@docs(tags=["Public Data Storage"], summary="Save data in a public data storage")
-@request_schema(SaveRecordSchema())
+# @docs(tags=["PersonalDataStorage"], summary="Save data in a public data storage")
+# @request_schema(SaveRecordSchema())
 async def save_record(request: web.BaseRequest):
     context = request.app["request_context"]
     body = await request.json()
@@ -33,31 +33,35 @@ async def save_record(request: web.BaseRequest):
     assert payload != None
     print("payload: ", payload)
 
-    public_storage: PublicDataStorage = await context.inject(PublicDataStorage)
+    public_storage: BasePersonalDataStorage = await context.inject(
+        BasePersonalDataStorage
+    )
 
     try:
         payload_id = await public_storage.save(payload)
-    except PublicDataStorageError as err:
+    except PersonalDataStorageError as err:
         raise web.HTTPError(reason=err.roll_up)
 
     return web.json_response({"payload_id": payload_id})
 
 
-@docs(
-    tags=["Public Data Storage"],
-    summary="Retrieve data from a public data storage using data id",
-)
+# @docs(
+#     tags=["PersonalDataStorage"],
+#     summary="Retrieve data from a public data storage using data id",
+# )
 async def get_record(request: web.BaseRequest):
     context = request.app["request_context"]
     payload_id = request.match_info["payload_id"]
 
     assert payload_id != None
 
-    public_storage: PublicDataStorage = await context.inject(PublicDataStorage)
+    public_storage: BasePersonalDataStorage = await context.inject(
+        BasePersonalDataStorage
+    )
 
     try:
         result = await public_storage.load(payload_id)
-    except PublicDataStorageError as err:
+    except PersonalDataStorageError as err:
         raise web.HTTPError(reason=err.roll_up)
 
     return web.json_response({"result": result})
@@ -68,8 +72,8 @@ class SaveSettingsSchema(Schema):
 
 
 @docs(
-    tags=["Public Data Storage"],
-    summary="Set and configure current PublicDataStorage",
+    tags=["PersonalDataStorage"],
+    summary="Set and configure current PersonalDataStorage",
     description="""
     Example of a correct schema:
     {
@@ -100,8 +104,8 @@ async def set_settings(request: web.BaseRequest):
         raise web.HTTPNotFound(reason="Settings schema is empty")
 
     for key in settings:
-        public_storage: PublicDataStorage = await context.inject(
-            PublicDataStorage, {"public_storage_type": key}
+        public_storage: BasePersonalDataStorage = await context.inject(
+            BasePersonalDataStorage, {"public_storage_type": key}
         )
         public_storage.settings.update(settings.get(key))
         print("(key, public_storage.settings): ", key, public_storage.settings)
@@ -110,7 +114,7 @@ async def set_settings(request: web.BaseRequest):
 
 
 @docs(
-    tags=["Public Data Storage"],
+    tags=["PersonalDataStorage"],
     summary="Get all registered public storage types and show their configuration",
 )
 async def get_settings(request: web.BaseRequest):
@@ -121,7 +125,7 @@ async def get_settings(request: web.BaseRequest):
 
     for key in registered_types:
         context.settings.set_value("public_storage_type", key)
-        public_storage = await context.inject(PublicDataStorage)
+        public_storage = await context.inject(BasePersonalDataStorage)
         response_message.update({key: public_storage.settings})
 
     context.settings.set_value("public_storage_type", active_storage_type)
@@ -130,7 +134,7 @@ async def get_settings(request: web.BaseRequest):
 
 
 @docs(
-    tags=["Public Data Storage"],
+    tags=["PersonalDataStorage"],
     summary="Set a public data storage type by name",
     description="for example: 'local', get possible types by calling 'GET /pds' endpoint",
 )
@@ -156,7 +160,7 @@ async def set_active_storage_type(request: web.BaseRequest):
 
 
 @docs(
-    tags=["Public Data Storage"],
+    tags=["PersonalDataStorage"],
     summary="Get all registered public storage types, get which storage_type is active",
 )
 async def get_storage_types(request: web.BaseRequest):

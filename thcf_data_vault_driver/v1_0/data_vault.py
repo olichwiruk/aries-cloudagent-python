@@ -1,6 +1,6 @@
-from aries_cloudagent.public_data_storage_thcf.base import PublicDataStorage
+from aries_cloudagent.public_data_storage_thcf.base import PersonalDataStorage
 from aries_cloudagent.public_data_storage_thcf.error import (
-    PublicDataStorageNotFoundError,
+    PersonalDataStorageNotFoundError,
 )
 from aiohttp import ClientSession, FormData
 from aries_cloudagent.config.injection_context import InjectionContext
@@ -8,7 +8,7 @@ from aries_cloudagent.config.injection_context import InjectionContext
 DATA_VAULT = "http://ocadatavault/api/v1/files"
 
 
-class THCFDataVault(PublicDataStorage):
+class THCFDataVault(PersonalDataStorage):
     def __init__(self):
         super().__init__()
         self.settings = {"no_configuration_needed": "yes"}
