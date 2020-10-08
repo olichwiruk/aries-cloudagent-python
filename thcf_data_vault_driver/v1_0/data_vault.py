@@ -1,5 +1,5 @@
-from aries_cloudagent.public_data_storage_thcf.base import PersonalDataStorage
-from aries_cloudagent.public_data_storage_thcf.error import (
+from aries_cloudagent.pdstorage_thcf.base import PersonalDataStorage
+from aries_cloudagent.pdstorage_thcf.error import (
     PersonalDataStorageNotFoundError,
 )
 from aiohttp import ClientSession, FormData

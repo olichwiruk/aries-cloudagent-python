@@ -28,8 +28,8 @@ from ..wallet.base import BaseWallet
 from ..wallet.provider import WalletProvider
 
 
-from ..public_data_storage_thcf.base import BasePersonalDataStorage
-from ..public_data_storage_thcf.provider import PersonalDataStorageProvider
+from ..pdstorage_thcf.base import BasePersonalDataStorage
+from ..pdstorage_thcf.provider import PersonalDataStorageProvider
 
 
 class DefaultContextBuilder(ContextBuilder):
@@ -176,7 +176,7 @@ class DefaultContextBuilder(ContextBuilder):
         plugin_registry.register_plugin("aries_cloudagent.wallet")
 
         # thcf
-        plugin_registry.register_plugin("aries_cloudagent.public_data_storage_thcf")
+        plugin_registry.register_plugin("aries_cloudagent.pdstorage_thcf")
 
         # Register external plugins
         for plugin_path in self.settings.get("external_plugins", []):

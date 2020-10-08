@@ -637,7 +637,7 @@ from ....wallet.util import (
     bytes_to_b64,
     str_to_b64,
 )
-from ....public_data_storage_thcf.base import BasePersonalDataStorage
+from ....pdstorage_thcf.base import BasePersonalDataStorage
 
 
 class TestSchema(OpenAPISchema):
