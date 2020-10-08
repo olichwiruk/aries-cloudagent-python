@@ -1,5 +1,5 @@
-from .base import PublicDataStorage
-from .error import *
+from aries_cloudagent.public_data_storage_thcf.base import PublicDataStorage
+from aries_cloudagent.public_data_storage_thcf.error import *
 
 import json
 
@@ -13,7 +13,7 @@ API_ON_READ = API_DATA_VAULT + "/api/items"
 # "https://data-vault.eu/api/repos/dip.data/items"
 # TOKEN
 # {
-#   "access_token":"1234-123",
+#   "access_token":"1234",
 #   "token_type":"Bearer",
 #   "expires_in":7200,
 #   "created_at":1601638565,
@@ -23,7 +23,7 @@ API_ON_READ = API_DATA_VAULT + "/api/items"
 # {"id":1609914}
 
 
-class OwnYourDataVault(PublicDataStorage):
+class OYDDataVault(PublicDataStorage):
     def __init__(self):
         super().__init__()
         self.token = None
@@ -37,7 +37,6 @@ class OwnYourDataVault(PublicDataStorage):
         # TODO: Add timestamp check because token expires
         # if self.token != None:
         #     return
-
         client_id = self.settings.get("client_id")
         client_secret = self.settings.get("client_secret")
 
