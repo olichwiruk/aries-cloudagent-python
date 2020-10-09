@@ -10,24 +10,12 @@ API_TOKEN = API_DATA_VAULT + "/oauth/token"
 API_ON_SAVE = API_DATA_VAULT + "/api/repos/dip.data/items"
 API_ON_READ = API_DATA_VAULT + "/api/items"
 
-# "https://data-vault.eu/api/repos/dip.data/items"
-# TOKEN
-# {
-#   "access_token":"1234-123",
-#   "token_type":"Bearer",
-#   "expires_in":7200,
-#   "created_at":1601638565,
-#   "username":"Karol"
-# }
-# SAVE return json
-# {"id":1609914}
-
 
 class OwnYourDataVault(BasePersonalDataStorage):
     def __init__(self):
         super().__init__()
         self.token = None
-        self.settings = {
+        self.preview_settings = {
             "client_id": "1234-example",
             "client_secret": "1234-example",
             "grant_type": "client_credentials",

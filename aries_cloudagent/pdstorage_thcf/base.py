@@ -5,6 +5,7 @@ from .error import PersonalDataStorageDuplicateError, PersonalDataStorageNotFoun
 class BasePersonalDataStorage(ABC):
     def __init__(self):
         self.settings = {}
+        self.preview_settings = {}
 
     @abstractmethod
     async def save(self, record: str) -> str:

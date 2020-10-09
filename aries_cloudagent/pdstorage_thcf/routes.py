@@ -13,6 +13,10 @@ from aiohttp_apispec import (
 from marshmallow import fields, validate, Schema
 from .base import BasePersonalDataStorage
 from .error import *
+from ..connections.models.connection_record import ConnectionRecord
+from ..wallet.error import WalletError
+from ..storage.error import StorageError
+from .message_types import *
 
 
 class SaveRecordSchema(Schema):
@@ -65,6 +69,36 @@ async def get_record(request: web.BaseRequest):
         raise web.HTTPError(reason=err.roll_up)
 
     return web.json_response({"result": result})
+
+
+class GetRecordFromAgentSchema(Schema):
+    connection_id = fields.Str(required=False)
+    payload_id = fields.Str(required=False)
+
+
+@docs(
+    tags=["PersonalDataStorage"],
+    summary="Retrieve data from a public data storage using data id",
+)
+@request_schema(GetRecordFromAgentSchema())
+async def get_record_from_agent(request: web.BaseRequest):
+    context = request.app["request_context"]
+    body = await request.json()
+
+    connection_id = body.get("connection_id")
+    payload_id = body.get("payload_id")
+
+    try:
+        connection_record: ConnectionRecord = await ConnectionRecord.retrieve_by_id(
+            context, connection_id
+        )
+    except (WalletError, StorageError) as err:
+        raise web.HTTPBadRequest(reason=err.roll_up) from err
+
+    outbound_handler = request.app["outbound_message_router"]
+    message = ExchangeDataA(payload_dri=payload_id)
+    await outbound_handler(message, connection_id=connection_id)
+    return web.json_response({"message sent": "a"})
 
 
 class SaveSettingsSchema(Schema):
@@ -126,7 +160,7 @@ async def get_settings(request: web.BaseRequest):
     for key in registered_types:
         context.settings.set_value("public_storage_type", key)
         public_storage = await context.inject(BasePersonalDataStorage)
-        response_message.update({key: public_storage.settings})
+        response_message.update({key: public_storage.preview_settings})
 
     context.settings.set_value("public_storage_type", active_storage_type)
 
@@ -170,7 +204,10 @@ async def get_storage_types(request: web.BaseRequest):
 
     registered_type_names = []
     for key in registered_types:
-        registered_type_names.append(key)
+        context.settings.set_value("public_storage_type", key)
+        public_storage = await context.inject(BasePersonalDataStorage)
+        if public_storage.settings != {}:
+            registered_type_names.append(key)
 
     return web.json_response(
         {"active": active_storage_type, "types": registered_type_names}
@@ -184,6 +221,10 @@ async def register(app: web.Application):
             web.post("/pds/save", save_record),
             web.post("/pds/settings", set_settings),
             web.post("/pds/activate", set_active_storage_type),
+            web.post(
+                "/pds/get_from",
+                get_record_from_agent,
+            ),
             web.get(
                 "/pds",
                 get_storage_types,

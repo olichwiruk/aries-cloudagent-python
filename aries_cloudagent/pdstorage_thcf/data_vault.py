@@ -8,6 +8,7 @@ DATA_VAULT = "http://ocadatavault/api/v1/files"
 class DataVault(BasePersonalDataStorage):
     def __init__(self):
         super().__init__()
+        self.preview_settings = {"no_configuration_needed": "yes"}
         self.settings = {"no_configuration_needed": "yes"}
 
     async def load(self, id: str) -> str:
