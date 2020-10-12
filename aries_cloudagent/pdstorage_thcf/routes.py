@@ -27,6 +27,15 @@ class SetActiveStorageTypeSchema(Schema):
     type = fields.Str(required=True)
 
 
+class GetRecordFromAgentSchema(Schema):
+    connection_id = fields.Str(required=False)
+    payload_id = fields.Str(required=False)
+
+
+class SaveSettingsSchema(Schema):
+    settings = fields.Dict(required=False)
+
+
 # @docs(tags=["PersonalDataStorage"], summary="Save data in a public data storage")
 # @request_schema(SaveRecordSchema())
 async def save_record(request: web.BaseRequest):
@@ -71,11 +80,6 @@ async def get_record(request: web.BaseRequest):
     return web.json_response({"result": result})
 
 
-class GetRecordFromAgentSchema(Schema):
-    connection_id = fields.Str(required=False)
-    payload_id = fields.Str(required=False)
-
-
 @docs(
     tags=["PersonalDataStorage"],
     summary="Retrieve data from a public data storage using data id",
@@ -99,10 +103,6 @@ async def get_record_from_agent(request: web.BaseRequest):
     message = ExchangeDataA(payload_dri=payload_id)
     await outbound_handler(message, connection_id=connection_id)
     return web.json_response({"message sent": "a"})
-
-
-class SaveSettingsSchema(Schema):
-    settings = fields.Dict(required=False)
 
 
 @docs(
@@ -138,6 +138,7 @@ async def set_settings(request: web.BaseRequest):
         raise web.HTTPNotFound(reason="Settings schema is empty")
 
     for key in settings:
+        print("KEY in settings")
         public_storage: BasePersonalDataStorage = await context.inject(
             BasePersonalDataStorage, {"public_storage_type": key}
         )
@@ -158,11 +159,10 @@ async def get_settings(request: web.BaseRequest):
     response_message = {}
 
     for key in registered_types:
-        context.settings.set_value("public_storage_type", key)
-        public_storage = await context.inject(BasePersonalDataStorage)
+        public_storage = await context.inject(
+            BasePersonalDataStorage, {"public_storage_type": key}
+        )
         response_message.update({key: public_storage.preview_settings})
-
-    context.settings.set_value("public_storage_type", active_storage_type)
 
     return web.json_response(response_message)
 
@@ -204,8 +204,9 @@ async def get_storage_types(request: web.BaseRequest):
 
     registered_type_names = []
     for key in registered_types:
-        context.settings.set_value("public_storage_type", key)
-        public_storage = await context.inject(BasePersonalDataStorage)
+        public_storage = await context.inject(
+            BasePersonalDataStorage, {"public_storage_type": key}
+        )
         if public_storage.settings != {}:
             registered_type_names.append(key)
 

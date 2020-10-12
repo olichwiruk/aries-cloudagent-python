@@ -8,7 +8,10 @@ DATA_VAULT = "http://ocadatavault/api/v1/files"
 class DataVault(BasePersonalDataStorage):
     def __init__(self):
         super().__init__()
-        self.preview_settings = {"no_configuration_needed": "yes"}
+        self.preview_settings = {
+            "oca_schema_namespace": "pds",
+            "oca_schema_dri": "ejHFuhg2v1ZrL5uQrHe3Arcxy62GWNakjTwL38swC9RB",
+        }
         self.settings = {"no_configuration_needed": "yes"}
 
     async def load(self, id: str) -> str:

@@ -15,11 +15,12 @@ class OwnYourDataVault(BasePersonalDataStorage):
     def __init__(self):
         super().__init__()
         self.token = None
-        self.preview_settings = {
-            "client_id": "1234-example",
-            "client_secret": "1234-example",
-            "grant_type": "client_credentials",
-        }
+        self.preview_settings = (
+            {
+                "oca_schema_namespace": "pds",
+                "oca_schema_dri": "4ZsViHFpyTYFdrrpRQmgun1qG4WKaC9rEXU3BpT7Foq2",
+            },
+        )
 
     async def update_token(self):
         # TODO: Add timestamp check because token expires
@@ -68,10 +69,16 @@ class OwnYourDataVault(BasePersonalDataStorage):
                 headers={"Authorization": "Bearer " + self.token["access_token"]},
             )
             result = await result.text()
-            result = json.loads(result)
-            print(result)
 
-        return result["value"]["payload"]
+        result = json.loads(result)
+        print(result)
+        result = json.loads(result["value"])
+        print(result)
+
+        try:
+            return result["payload"]
+        except KeyError:
+            return result
 
     async def save(self, record: str) -> str:
         await self.update_token()
