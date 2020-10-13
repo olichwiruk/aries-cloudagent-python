@@ -16,6 +16,7 @@ class LocalPersonalDataStorage(BasePersonalDataStorage):
             },
         )
         self.settings = {"no_configuration_needed": "yes"}
+        # hashing_object = multihash.Multihash(multihash.Func.sha2_256, base58.b58encode("stuff"))
 
     async def load(self, id: str) -> str:
         """

@@ -12,6 +12,7 @@ from aiohttp_apispec import (
 
 from marshmallow import fields, validate, Schema
 from .base import BasePersonalDataStorage
+from .api import read_string, save_string
 from .error import *
 from ..connections.models.connection_record import ConnectionRecord
 from ..wallet.error import WalletError
@@ -43,15 +44,10 @@ async def save_record(request: web.BaseRequest):
     body = await request.json()
 
     payload = body.get("payload", None)
-    assert payload != None
-    print("payload: ", payload)
-
-    public_storage: BasePersonalDataStorage = await context.inject(
-        BasePersonalDataStorage
-    )
+    assert payload != None, "payload field is None"
 
     try:
-        payload_id = await public_storage.save(payload)
+        payload_id = await save_string(context, payload)
     except PersonalDataStorageError as err:
         raise web.HTTPError(reason=err.roll_up)
 
@@ -66,14 +62,10 @@ async def get_record(request: web.BaseRequest):
     context = request.app["request_context"]
     payload_id = request.match_info["payload_id"]
 
-    assert payload_id != None
-
-    public_storage: BasePersonalDataStorage = await context.inject(
-        BasePersonalDataStorage
-    )
+    assert payload_id != None, "payload_id field is empty"
 
     try:
-        result = await public_storage.load(payload_id)
+        result = await read_string(context, payload_id)
     except PersonalDataStorageError as err:
         raise web.HTTPError(reason=err.roll_up)
 
@@ -138,12 +130,10 @@ async def set_settings(request: web.BaseRequest):
         raise web.HTTPNotFound(reason="Settings schema is empty")
 
     for key in settings:
-        print("KEY in settings")
         public_storage: BasePersonalDataStorage = await context.inject(
             BasePersonalDataStorage, {"public_storage_type": key}
         )
         public_storage.settings.update(settings.get(key))
-        print("(key, public_storage.settings): ", key, public_storage.settings)
 
     return web.json_response({"success": "settings_updated"})
 

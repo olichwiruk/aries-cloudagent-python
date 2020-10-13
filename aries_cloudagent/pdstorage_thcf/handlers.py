@@ -1,3 +1,4 @@
+from .api import *
 from .base import *
 from .error import *
 from .message_types import *
@@ -19,11 +20,10 @@ class ExchangeDataAHandler(BaseHandler):
     async def handle(self, context: RequestContext, responder: BaseResponder):
         print("ExchangeDataAHandler")
         assert isinstance(context.message, ExchangeDataA)
-        pds: BasePersonalDataStorage = await context.inject(BasePersonalDataStorage)
         payload_dri = context.message.payload_dri
 
         try:
-            payload = await pds.load(payload_dri)
+            payload = await read_string(context, payload_dri)
             if payload == None:
                 raise PersonalDataStorageNotFoundError
         except PersonalDataStorageError as err:
@@ -43,10 +43,9 @@ class ExchangeDataBHandler(BaseHandler):
     async def handle(self, context: RequestContext, responder: BaseResponder):
         print("ExchangeDataBHandler")
         assert isinstance(context.message, ExchangeDataB)
-        pds: BasePersonalDataStorage = await context.inject(BasePersonalDataStorage)
 
         try:
-            payload_dri = await pds.save(context.message.payload)
+            payload_dri = await save_string(context, context.message.payload)
         except PersonalDataStorageError as err:
             raise err.roll_up
 
