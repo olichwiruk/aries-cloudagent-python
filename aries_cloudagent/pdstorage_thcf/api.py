@@ -1,10 +1,25 @@
 from .base import BasePersonalDataStorage
-from ..messaging.request_context import (
-    RequestContext,
-)
+from ..messaging.request_context import RequestContext
 import hashlib
+import multihash
+import multibase
 
 table_that_matches_plugins_with_ids = {}
+
+
+def encode(data: str) -> str:
+    hash_object = hashlib.sha256()
+    hash_object.update(bytes(data, "utf-8"))
+    multi = multihash.encode(hash_object.digest(), "sha2-256")
+    result = multibase.encode("base58btc", multi)
+
+    return result.decode("utf-8")
+
+
+# def get_hash_info(data: bytes) -> tuple:
+#     data = multibase.decode(data)
+#     data = multihash.decode(data)
+#     return data
 
 
 async def read_string(context: RequestContext, id: str):

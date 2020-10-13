@@ -69,7 +69,7 @@ async def get_record(request: web.BaseRequest):
     except PersonalDataStorageError as err:
         raise web.HTTPError(reason=err.roll_up)
 
-    return web.json_response({"result": result})
+    return web.json_response({"payload": result})
 
 
 @docs(
@@ -212,24 +212,9 @@ async def register(app: web.Application):
             web.post("/pds/save", save_record),
             web.post("/pds/settings", set_settings),
             web.post("/pds/activate", set_active_storage_type),
-            web.post(
-                "/pds/get_from",
-                get_record_from_agent,
-            ),
-            web.get(
-                "/pds",
-                get_storage_types,
-                allow_head=False,
-            ),
-            web.get(
-                "/pds/settings",
-                get_settings,
-                allow_head=False,
-            ),
-            web.get(
-                "/pds/{payload_id}",
-                get_record,
-                allow_head=False,
-            ),
+            web.post("/pds/get_from", get_record_from_agent,),
+            web.get("/pds", get_storage_types, allow_head=False,),
+            web.get("/pds/settings", get_settings, allow_head=False,),
+            web.get("/pds/{payload_id}", get_record, allow_head=False,),
         ]
     )

@@ -1,8 +1,6 @@
 from .base import BasePersonalDataStorage
 from .error import PersonalDataStorageNotFoundError
-
-import uuid
-import hashlib
+from .api import encode
 
 
 class LocalPersonalDataStorage(BasePersonalDataStorage):
@@ -27,7 +25,7 @@ class LocalPersonalDataStorage(BasePersonalDataStorage):
         return result
 
     async def save(self, record: str) -> str:
-        result = hashlib.sha256(record.encode("UTF-8")).hexdigest()
+        result = encode(record)
         self.storage[result] = record
 
         return result

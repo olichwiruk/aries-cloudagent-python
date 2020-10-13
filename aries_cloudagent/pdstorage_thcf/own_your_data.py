@@ -1,4 +1,5 @@
 from .base import BasePersonalDataStorage
+from .api import encode
 from .error import *
 
 import json
@@ -63,32 +64,65 @@ class OwnYourDataVault(BasePersonalDataStorage):
         TODO: Errors checking
         """
         await self.update_token()
+
+        url = f"https://data-vault.eu/api/data?dri={id}"
+        # url = f"https://data-vault.eu/api/data?dri={dri_value}&schema_dri={dri_schema_value}"
         async with ClientSession() as session:
             result = await session.get(
-                f"{API_ON_READ}/{id}/details",
-                headers={"Authorization": "Bearer " + self.token["access_token"]},
+                url, headers={"Authorization": "Bearer " + self.token["access_token"]}
             )
             result = await result.text()
+            result = json.loads(result)
+            print(result)
 
-        result = json.loads(result)
-        print(result)
-        result = json.loads(result["value"])
-        print(result)
-
-        try:
-            return result["payload"]
-        except KeyError:
-            return result
+        return result.get("content")
 
     async def save(self, record: str) -> str:
+        """
+        dri_value = 262462624234
+        dri_schema_value = 1616442423
+
+        url = "https://data-vault.eu/api/data"
+        print(url)
+        async with ClientSession() as session:
+                    result = await session.post(url, headers={
+                        "Authorization": "Bearer " + token['access_token']
+                    }, json={
+                    "content": {"abs": "test asdasd"},
+                    "dri": dri_value,
+        #               "schema_dri": dri_schema_value,
+                    "mime_type": "application/json",
+                    "table_name": "dip.data"
+                    })
+                    result = await result.text()
+                    load = json.loads(result)
+                    print(result)
+                    
+                    
+        url = f"https://data-vault.eu/api/data?dri={dri_value}&schema_dri={dri_schema_value}"
+        async with ClientSession() as session:
+                    result = await session.get(url, headers={
+                        "Authorization": "Bearer " + token['access_token']
+                    })
+                    result = await result.text()
+                    load = json.loads(result)
+                    print(result)
+        """
+        dri_value = encode(record)
         await self.update_token()
         async with ClientSession() as session:
             result = await session.post(
-                "https://data-vault.eu/api/repos/dip.data/items",
-                json={"payload": record},
+                "https://data-vault.eu/api/data",
                 headers={"Authorization": "Bearer " + self.token["access_token"]},
+                json={
+                    "content": record,
+                    "dri": dri_value,
+                    #               "schema_dri": dri_schema_value,
+                    "mime_type": "application/json",
+                    "table_name": "dip.data",
+                },
             )
             result = await result.text()
             result = json.loads(result)
 
-        return result.get("id")
+        return dri_value
