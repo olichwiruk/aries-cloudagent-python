@@ -5,4 +5,3 @@
 [submodule "aries-services-plugin"]
 	path = aries-services-plugin
 	url = https://github.com/THCLab/aries-services-plugin
-	branch = credentials
