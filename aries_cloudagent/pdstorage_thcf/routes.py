@@ -130,10 +130,10 @@ async def set_settings(request: web.BaseRequest):
         raise web.HTTPNotFound(reason="Settings schema is empty")
 
     for key in settings:
-        public_storage: BasePersonalDataStorage = await context.inject(
-            BasePersonalDataStorage, {"public_storage_type": key}
+        personal_storage: BasePersonalDataStorage = await context.inject(
+            BasePersonalDataStorage, {"personal_storage_type": key}
         )
-        public_storage.settings.update(settings.get(key))
+        personal_storage.settings.update(settings.get(key))
 
     return web.json_response({"success": "settings_updated"})
 
@@ -144,15 +144,15 @@ async def set_settings(request: web.BaseRequest):
 )
 async def get_settings(request: web.BaseRequest):
     context = request.app["request_context"]
-    registered_types = context.settings.get("public_storage_registered_types")
-    active_storage_type = context.settings.get("public_storage_type")
+    registered_types = context.settings.get("personal_storage_registered_types")
+    active_storage_type = context.settings.get("personal_storage_type")
     response_message = {}
 
     for key in registered_types:
-        public_storage = await context.inject(
-            BasePersonalDataStorage, {"public_storage_type": key}
+        personal_storage = await context.inject(
+            BasePersonalDataStorage, {"personal_storage_type": key}
         )
-        response_message.update({key: public_storage.preview_settings})
+        response_message.update({key: personal_storage.preview_settings})
 
     return web.json_response(response_message)
 
@@ -167,20 +167,20 @@ async def set_active_storage_type(request: web.BaseRequest):
     context = request.app["request_context"]
     body = await request.json()
 
-    public_storage_type = body.get("type", None)
+    personal_storage_type = body.get("type", None)
 
     check_if_storage_type_is_registered = context.settings.get_value(
-        "public_storage_registered_types"
-    ).get(public_storage_type)
+        "personal_storage_registered_types"
+    ).get(personal_storage_type)
 
     if check_if_storage_type_is_registered == None:
         raise web.HTTPNotFound(
             reason="Chosen type is not in the registered list, make sure there are no typos! Use GET settings to look for registered types"
         )
 
-    context.settings.set_value("public_storage_type", public_storage_type)
+    context.settings.set_value("personal_storage_type", personal_storage_type)
 
-    return web.json_response({"success_type_exists": public_storage_type})
+    return web.json_response({"success_type_exists": personal_storage_type})
 
 
 @docs(
@@ -189,15 +189,15 @@ async def set_active_storage_type(request: web.BaseRequest):
 )
 async def get_storage_types(request: web.BaseRequest):
     context = request.app["request_context"]
-    registered_types = context.settings.get("public_storage_registered_types")
-    active_storage_type = context.settings.get("public_storage_type")
+    registered_types = context.settings.get("personal_storage_registered_types")
+    active_storage_type = context.settings.get("personal_storage_type")
 
     registered_type_names = []
     for key in registered_types:
-        public_storage = await context.inject(
-            BasePersonalDataStorage, {"public_storage_type": key}
+        personal_storage = await context.inject(
+            BasePersonalDataStorage, {"personal_storage_type": key}
         )
-        if public_storage.settings != {}:
+        if personal_storage.settings != {}:
             registered_type_names.append(key)
 
     return web.json_response(

@@ -16,12 +16,10 @@ class OwnYourDataVault(BasePersonalDataStorage):
     def __init__(self):
         super().__init__()
         self.token = None
-        self.preview_settings = (
-            {
-                "oca_schema_namespace": "pds",
-                "oca_schema_dri": "4ZsViHFpyTYFdrrpRQmgun1qG4WKaC9rEXU3BpT7Foq2",
-            },
-        )
+        self.preview_settings = {
+            "oca_schema_namespace": "pds",
+            "oca_schema_dri": "4ZsViHFpyTYFdrrpRQmgun1qG4WKaC9rEXU3BpT7Foq2",
+        }
 
     async def update_token(self):
         # TODO: Add timestamp check because token expires
@@ -78,36 +76,6 @@ class OwnYourDataVault(BasePersonalDataStorage):
         return result.get("content")
 
     async def save(self, record: str) -> str:
-        """
-        dri_value = 262462624234
-        dri_schema_value = 1616442423
-
-        url = "https://data-vault.eu/api/data"
-        print(url)
-        async with ClientSession() as session:
-                    result = await session.post(url, headers={
-                        "Authorization": "Bearer " + token['access_token']
-                    }, json={
-                    "content": {"abs": "test asdasd"},
-                    "dri": dri_value,
-        #               "schema_dri": dri_schema_value,
-                    "mime_type": "application/json",
-                    "table_name": "dip.data"
-                    })
-                    result = await result.text()
-                    load = json.loads(result)
-                    print(result)
-                    
-                    
-        url = f"https://data-vault.eu/api/data?dri={dri_value}&schema_dri={dri_schema_value}"
-        async with ClientSession() as session:
-                    result = await session.get(url, headers={
-                        "Authorization": "Bearer " + token['access_token']
-                    })
-                    result = await result.text()
-                    load = json.loads(result)
-                    print(result)
-        """
         dri_value = encode(record)
         await self.update_token()
         async with ClientSession() as session:

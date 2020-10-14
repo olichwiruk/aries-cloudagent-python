@@ -7,21 +7,6 @@ import multibase
 table_that_matches_plugins_with_ids = {}
 
 
-def encode(data: str) -> str:
-    hash_object = hashlib.sha256()
-    hash_object.update(bytes(data, "utf-8"))
-    multi = multihash.encode(hash_object.digest(), "sha2-256")
-    result = multibase.encode("base58btc", multi)
-
-    return result.decode("utf-8")
-
-
-# def get_hash_info(data: bytes) -> tuple:
-#     data = multibase.decode(data)
-#     data = multihash.decode(data)
-#     return data
-
-
 async def read_string(context: RequestContext, id: str):
     print(
         "\n\ntable_that_matches_plugins_with_ids on read_string",
@@ -37,7 +22,7 @@ async def read_string(context: RequestContext, id: str):
         return None
 
     pds: BasePersonalDataStorage = await context.inject(
-        BasePersonalDataStorage, {"public_storage_type": plugin}
+        BasePersonalDataStorage, {"personal_storage_type": plugin}
     )
     result = await pds.load(id)
 
@@ -46,7 +31,7 @@ async def read_string(context: RequestContext, id: str):
 
 async def save_string(context: RequestContext, payload: str):
     pds: BasePersonalDataStorage = await context.inject(BasePersonalDataStorage)
-    active_plugin = context.settings.get("public_storage_type")
+    active_plugin = context.settings.get("personal_storage_type")
 
     payload_id = await pds.save(payload)
     payload_id = str(payload_id)
@@ -54,3 +39,19 @@ async def save_string(context: RequestContext, payload: str):
     table_that_matches_plugins_with_ids[payload_id] = active_plugin
 
     return payload_id
+
+
+def encode(data: str) -> str:
+    hash_object = hashlib.sha256()
+    hash_object.update(bytes(data, "utf-8"))
+    multi = multihash.encode(hash_object.digest(), "sha2-256")
+    result = multibase.encode("base58btc", multi)
+
+    return result.decode("utf-8")
+
+
+# def get_hash_info(data: bytes) -> tuple:
+#     data = multibase.decode(data)
+#     data = multihash.decode(data)
+#     return data
+
