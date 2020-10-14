@@ -7,9 +7,7 @@ from aries_cloudagent.messaging.base_handler import (
     BaseResponder,
     RequestContext,
 )
-from ..protocols.problem_report.v1_0.message import (
-    ProblemReport,
-)
+from ..protocols.problem_report.v1_0.message import ProblemReport
 
 
 class ExchangeDataAHandler(BaseHandler):
@@ -23,7 +21,7 @@ class ExchangeDataAHandler(BaseHandler):
         payload_dri = context.message.payload_dri
 
         try:
-            payload = await read_string(context, payload_dri)
+            payload = await load_string(context, payload_dri)
             if payload == None:
                 raise PersonalDataStorageNotFoundError
         except PersonalDataStorageError as err:

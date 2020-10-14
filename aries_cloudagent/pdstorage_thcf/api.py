@@ -1,4 +1,5 @@
 from .base import BasePersonalDataStorage
+from .error import *
 from ..messaging.request_context import RequestContext
 import hashlib
 import multihash
@@ -7,16 +8,19 @@ import multibase
 table_that_matches_plugins_with_ids = {}
 
 
-async def read_string(context: RequestContext, id: str):
+async def load_string(context: RequestContext, id: str):
     print(
-        "\n\ntable_that_matches_plugins_with_ids on read_string",
+        "\n\ntable_that_matches_plugins_with_ids on load_string",
         table_that_matches_plugins_with_ids,
     )
+    if id == None:
+        # raise PersonalDataStorageNoneValuePassedError("Id is None")
+        return None
 
     print("input id: ", id)
     id = str(id)
     plugin = table_that_matches_plugins_with_ids.get(id)
-    print("read_string - plugin value: ", plugin)
+    print("load_string - plugin value: ", plugin)
     print("\n\n")
     if plugin == None:
         return None
@@ -30,9 +34,13 @@ async def read_string(context: RequestContext, id: str):
 
 
 async def save_string(context: RequestContext, payload: str):
+    if payload == None:
+        return None
+
     pds: BasePersonalDataStorage = await context.inject(BasePersonalDataStorage)
     active_plugin = context.settings.get("personal_storage_type")
 
+    print("Payload: ", payload)
     payload_id = await pds.save(payload)
     payload_id = str(payload_id)
 

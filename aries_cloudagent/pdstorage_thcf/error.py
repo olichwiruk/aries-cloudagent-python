@@ -5,6 +5,10 @@ class PersonalDataStorageError(BaseError):
     """Base class for Storage errors."""
 
 
+class PersonalDataStorageNoneValuePassedError(BaseError):
+    """Base class for Storage errors."""
+
+
 class PersonalDataStorageNotFoundError(PersonalDataStorageError):
     """Record not found in storage."""
 

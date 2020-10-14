@@ -12,7 +12,7 @@ from aiohttp_apispec import (
 
 from marshmallow import fields, validate, Schema
 from .base import BasePersonalDataStorage
-from .api import read_string, save_string
+from .api import load_string, save_string
 from .error import *
 from ..connections.models.connection_record import ConnectionRecord
 from ..wallet.error import WalletError
@@ -65,7 +65,7 @@ async def get_record(request: web.BaseRequest):
     assert payload_id != None, "payload_id field is empty"
 
     try:
-        result = await read_string(context, payload_id)
+        result = await load_string(context, payload_id)
     except PersonalDataStorageError as err:
         raise web.HTTPError(reason=err.roll_up)
 
