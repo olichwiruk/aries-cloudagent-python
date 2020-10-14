@@ -8,22 +8,18 @@ import multibase
 table_that_matches_plugins_with_ids = {}
 
 
-async def load_string(context: RequestContext, id: str):
-    print(
-        "\n\ntable_that_matches_plugins_with_ids on load_string",
-        table_that_matches_plugins_with_ids,
-    )
+async def load_string(context: RequestContext, id: str, pds_type: str = None):
     if id == None:
-        # raise PersonalDataStorageNoneValuePassedError("Id is None")
         return None
-
-    print("input id: ", id)
     id = str(id)
-    plugin = table_that_matches_plugins_with_ids.get(id)
-    print("load_string - plugin value: ", plugin)
-    print("\n\n")
-    if plugin == None:
-        return None
+
+    if pds_type != None:
+        plugin = pds_type
+
+    else:
+        plugin = table_that_matches_plugins_with_ids.get(id)
+        if plugin == None:
+            return None
 
     pds: BasePersonalDataStorage = await context.inject(
         BasePersonalDataStorage, {"personal_storage_type": plugin}

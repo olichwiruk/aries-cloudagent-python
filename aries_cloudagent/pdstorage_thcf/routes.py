@@ -37,8 +37,8 @@ class SaveSettingsSchema(Schema):
     settings = fields.Dict(required=False)
 
 
-# @docs(tags=["PersonalDataStorage"], summary="Save data in a public data storage")
-# @request_schema(SaveRecordSchema())
+@docs(tags=["PersonalDataStorage"], summary="Save data in a public data storage")
+@request_schema(SaveRecordSchema())
 async def save_record(request: web.BaseRequest):
     context = request.app["request_context"]
     body = await request.json()
@@ -54,10 +54,10 @@ async def save_record(request: web.BaseRequest):
     return web.json_response({"payload_id": payload_id})
 
 
-# @docs(
-#     tags=["PersonalDataStorage"],
-#     summary="Retrieve data from a public data storage using data id",
-# )
+@docs(
+    tags=["PersonalDataStorage"],
+    summary="Retrieve data from a public data storage using data id",
+)
 async def get_record(request: web.BaseRequest):
     context = request.app["request_context"]
     payload_id = request.match_info["payload_id"]

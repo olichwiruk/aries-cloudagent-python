@@ -25,6 +25,16 @@ class DataVault(BasePersonalDataStorage):
         async with ClientSession() as session:
             response = await session.get(url)
             response_text = await response.text()
+            print(response_text)
+
+        # seek errors
+        try:
+            response_json = json.loads(response_text)
+            print(response_json)
+            if "errors" in response_json:
+                return None
+        except json.JSONDecodeError:
+            pass
 
         return response_text
 
