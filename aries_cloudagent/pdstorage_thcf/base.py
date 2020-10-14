@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from .error import PublicDataStorageDuplicateError, PublicDataStorageNotFoundError
+from .error import PersonalDataStorageDuplicateError, PersonalDataStorageNotFoundError
 
 
-class PublicDataStorage(ABC):
+class BasePersonalDataStorage(ABC):
     def __init__(self):
         self.settings = {}
+        self.preview_settings = {}
 
     @abstractmethod
     async def save(self, record: str) -> str:

@@ -1,5 +1,5 @@
-from .base import PublicDataStorage
-from .error import *
+from aries_cloudagent.pdstorage_thcf.base import PersonalDataStorage
+from aries_cloudagent.pdstorage_thcf.error import *
 
 import json
 
@@ -13,7 +13,7 @@ API_ON_READ = API_DATA_VAULT + "/api/items"
 # "https://data-vault.eu/api/repos/dip.data/items"
 # TOKEN
 # {
-#   "access_token":"1234-123",
+#   "access_token":"1234",
 #   "token_type":"Bearer",
 #   "expires_in":7200,
 #   "created_at":1601638565,
@@ -23,7 +23,7 @@ API_ON_READ = API_DATA_VAULT + "/api/items"
 # {"id":1609914}
 
 
-class OwnYourDataVault(PublicDataStorage):
+class OYDDataVault(PersonalDataStorage):
     def __init__(self):
         super().__init__()
         self.token = None
@@ -37,16 +37,15 @@ class OwnYourDataVault(PublicDataStorage):
         # TODO: Add timestamp check because token expires
         # if self.token != None:
         #     return
-
         client_id = self.settings.get("client_id")
         client_secret = self.settings.get("client_secret")
 
         if client_id == None:
-            raise PublicDataStorageLackingConfigurationError(
+            raise PersonalDataStorageLackingConfigurationError(
                 "Please configure the plugin, Client_id is empty"
             )
         if client_secret == None:
-            raise PublicDataStorageLackingConfigurationError(
+            raise PersonalDataStorageLackingConfigurationError(
                 "Please configure the plugin, Client_secret is empty"
             )
 
@@ -60,7 +59,7 @@ class OwnYourDataVault(PublicDataStorage):
                 },
             )
             if result.status != 200:
-                raise PublicDataStorageServerError(
+                raise PersonalDataStorageServerError(
                     "Server Error, Could be that the connection is invalid or some other unforseen error, check if the server is up"
                 )
 

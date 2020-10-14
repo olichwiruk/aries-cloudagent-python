@@ -345,8 +345,7 @@ async def connections_create_invitation(request: web.BaseRequest):
     return web.json_response(result)
 
 
-@docs(tags=["connection"], 
-      summary="Create an invitation url which has admin rights")
+@docs(tags=["connection"], summary="Create an invitation url which has admin rights")
 @response_schema(InvitationResultSchema(), 200)
 async def connections_create_admin_invitation_url(request: web.BaseRequest):
     """
@@ -367,12 +366,13 @@ async def connections_create_admin_invitation_url(request: web.BaseRequest):
         my_label=context.settings.get("debug.invite_label"),
         multi_use=context.settings.get("debug.invite_multi_use", False),
         public=context.settings.get("debug.invite_public", False),
-    )   
+    )
     result = {
         "invitation_url": invitation.to_url(base_url),
     }
 
     return web.json_response(result)
+
 
 @docs(
     tags=["connection"],
@@ -637,7 +637,7 @@ from ....wallet.util import (
     bytes_to_b64,
     str_to_b64,
 )
-from ....public_data_storage_thcf.base import PublicDataStorage
+from ....pdstorage_thcf.base import BasePersonalDataStorage
 
 
 class TestSchema(OpenAPISchema):
@@ -650,7 +650,7 @@ async def test_vs_js(request: web.BaseRequest):
     context = request.app["request_context"]
     body = await request.json()
     wallet: BaseWallet = await context.inject(BaseWallet)
-    storage: PublicDataStorage = await context.inject(PublicDataStorage)
+    storage: BasePersonalDataStorage = await context.inject(BasePersonalDataStorage)
 
     credential = {
         "@context": [
@@ -728,7 +728,10 @@ async def register(app: web.Application):
             web.post("/test-vs", test_vs_js),
             web.post("/connections/create-static", connections_create_static),
             web.post("/connections/create-invitation", connections_create_invitation),
-            web.post("/connections/create-admin-invitation-url", connections_create_admin_invitation_url),
+            web.post(
+                "/connections/create-admin-invitation-url",
+                connections_create_admin_invitation_url,
+            ),
             web.post("/connections/receive-invitation", connections_receive_invitation),
             web.post(
                 "/connections/create-admin-invitation-url",

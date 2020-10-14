@@ -13,6 +13,5 @@ aca-py start \
     --wallet-name $AGENT_NAME \
     --admin 0.0.0.0 8150 --admin-insecure-mode \
     --webhook-url ws://websocket_server$1:5000 \
-    --plugin acapy_plugin \
     --plugin acapy_plugin_toolbox \
     --plugin services 
