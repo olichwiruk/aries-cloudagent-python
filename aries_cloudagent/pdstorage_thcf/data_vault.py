@@ -3,7 +3,7 @@ from .error import PersonalDataStorageNotFoundError
 from aiohttp import ClientSession, FormData
 import json
 
-DATA_VAULT = "http://ocadatavault/api/v1/files"
+DATA_VAULT = "https://data-vault.argo.colossi.network/api/v1/files"
 
 
 class DataVault(BasePersonalDataStorage):
