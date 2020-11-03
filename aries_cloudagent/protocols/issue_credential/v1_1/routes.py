@@ -12,6 +12,7 @@ from aiohttp_apispec import (
 )
 from json.decoder import JSONDecodeError
 from marshmallow import fields, validate
+import logging
 
 from ....connections.models.connection_record import ConnectionRecord
 from ....issuer.base import IssuerError
@@ -25,12 +26,15 @@ from ....messaging.valid import (
 )
 from ....storage.error import StorageError, StorageNotFoundError
 from ....wallet.base import BaseWallet
-from ....holder.base import BaseHolder
+from ....holder.base import BaseHolder, HolderError
 from ....issuer.base import BaseIssuer
 from ....wallet.error import WalletError
 from ....utils.outofband import serialize_outofband
 from ....utils.tracing import trace_event, get_timer, AdminAPIMessageTracingSchema
 from .messages.credential_issue import CredentialIssue
+
+
+LOG = logging.getLogger(__name__).info
 
 
 class IssueCredentialSchema(OpenAPISchema):
@@ -80,10 +84,6 @@ async def issue_credential(request: web.BaseRequest):
         )
     except IssuerError as err:
         raise web.HTTPError(reason=err.roll_up)
-
-    holder: BaseHolder = await context.inject(BaseHolder)
-    cred_id = await holder.store_credential({}, json.loads(credential), {})
-    print("CREDENTIAL ID HERE IT WAS SAVED POGU ", cred_id)
 
     issue = CredentialIssue(credential=credential)
     await outbound_handler(issue, connection_id=connection_record.connection_id)

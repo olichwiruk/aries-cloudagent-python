@@ -36,7 +36,7 @@ class PDSIssuer(BaseIssuer):
 
         """
         self.wallet: BaseWallet = wallet
-        self.logger = logging.getLogger(__name__)
+        self.log = logging.getLogger(__name__).info
 
     def make_schema_id(
         self, origin_did: str, schema_name: str, schema_version: str
@@ -153,6 +153,8 @@ class PDSIssuer(BaseIssuer):
             A tuple of created credential and revocation id
 
         """
+        self.log("create_credential invoked")
+
         credential_type = schema.get("credential_type")
         connection_record: ConnectionRecord = credential_request.get(
             "connection_record"
@@ -235,7 +237,7 @@ class PDSIssuer(BaseIssuer):
         }
 
         credential_dict.update({"proof": proof_dict})
-        self.logger.info("Proof dictionary: %s", credential_dict)
+        self.log("Proof dictionary: %s", credential_dict)
 
         # Create a credential schema
         # Fill it with data

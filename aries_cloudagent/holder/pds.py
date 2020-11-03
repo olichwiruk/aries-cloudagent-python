@@ -4,9 +4,10 @@ from ..core.error import BaseError
 from .base import *
 from .models.credential import *
 from ..storage.base import BaseStorage
+from ..storage.error import StorageNotFoundError, StorageError
 from ..config.injection_context import InjectionContext
 
-
+# TODO: Better error handling
 class PDSHolder(BaseHolder):
     """PDS class for holder."""
 
@@ -16,13 +17,22 @@ class PDSHolder(BaseHolder):
 
     async def get_credential(self, credential_id: str) -> str:
         """
-        Get a credential stored in the wallet.
+        Get a stored credential.
 
         Args:
             credential_id: Credential id to retrieve
 
         """
-        pass
+        self.log("get_credential invoked")
+
+        try:
+            credential: THCFCredential = await THCFCredential.retrieve_by_id(
+                self.context, credential_id
+            )
+        except StorageError as err:
+            raise HolderError(err.roll_up)
+
+        return credential.serialize(as_string=True)
 
     async def delete_credential(self, credential_id: str):
         """
@@ -32,7 +42,15 @@ class PDSHolder(BaseHolder):
             credential_id: Credential id to remove
 
         """
-        pass
+        self.log("delete_credential invoked")
+
+        try:
+            credential: THCFCredential = await THCFCredential.retrieve_by_id(
+                self.context, credential_id
+            )
+            await credential.delete_record(self.context)
+        except StorageError as err:
+            raise HolderError(err.roll_up)
 
     async def get_mime_type(
         self, credential_id: str, attr: str = None
