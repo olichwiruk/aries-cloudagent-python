@@ -1,4 +1,4 @@
-from ..messaging.models.base_record import BaseRecord, BaseRecordSchema
+from ...messaging.models.base_record import BaseRecord, BaseRecordSchema
 from marshmallow import fields
 
 
@@ -12,7 +12,7 @@ class THCFCredential(BaseRecord):
     def __init__(
         self,
         *,
-        id: str = None,
+        id: str = None,  # pointer to a machine_readable document
         credentialSubject: dict = None,
         context: list = None,
         type: list = None,
@@ -54,42 +54,3 @@ class THCFCredentialSchema(BaseRecordSchema):
     type = fields.List(fields.Str(), required=False)
     credentialSubject = fields.Dict(required=False)
     proof = fields.Dict(required=False)
-
-
-def THCFcreate_credential_from_dict(credential: dict) -> THCFCredential:
-    # NOTE(KKrzosa): Make sure fields are not None
-    issuer = credential["issuer"] if credential["issuer"] else None
-    proof = credential["proof"] if credential["proof"] else None
-    type = credential["type"] if credential["type"] else None
-    id = credential["id"] if credential["id"] else None
-
-    context = None
-    if credential["@context"]:
-        context = credential["@context"]
-    elif credential["context"]:
-        context = credential["context"]
-
-    subject = None
-    if credential["credentialSubject"]:
-        subject = credential["credentialSubject"]
-
-    # NOTE(KKrzosa): Make sure fields are of correct type
-    assert isinstance(issuer, str)
-    assert isinstance(id, str)
-    assert isinstance(proof, dict)
-    assert isinstance(subject, dict)
-    assert isinstance(context, list)
-    assert isinstance(type, list)
-
-    result = THCFCredential(
-        credentialSubject=subject,
-        context=context,
-        issuer=issuer,
-        proof=proof,
-        type=type,
-        id=id,
-    )
-
-    print("THCFcreate_credential_from_dict", result)
-
-    return result
