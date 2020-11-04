@@ -32,6 +32,9 @@ from ....wallet.error import WalletError
 from ....utils.outofband import serialize_outofband
 from ....utils.tracing import trace_event, get_timer, AdminAPIMessageTracingSchema
 from .messages.credential_issue import CredentialIssue
+from aries_cloudagent.protocols.issue_credential.v1_1.messages.credential_request import (
+    CredentialRequest,
+)
 
 
 LOG = logging.getLogger(__name__).info
@@ -39,8 +42,8 @@ LOG = logging.getLogger(__name__).info
 
 class IssueCredentialSchema(OpenAPISchema):
     credential_values = fields.Dict()
-    credential_type = fields.Str()
-    connection_id = fields.Str()
+    credential_type = fields.Str(required=True)
+    connection_id = fields.Str(required=True)
 
 
 @docs(tags=["issue-credential"], summary="Issue credential ")
@@ -53,11 +56,6 @@ async def issue_credential(request: web.BaseRequest):
     credential_type = body.get("credential_type")
     credential_values = body.get("credential_values")
     connection_id = body.get("connection_id")
-
-    if None in [credential_type, credential_values, connection_id]:
-        raise web.HTTPBadRequest(
-            reason=f"""[credential_type, credential_values, connection_id] {[credential_type, credential_values, connection_id]} Some fields need to be filled in"""
-        )
 
     try:
         connection_record: ConnectionRecord = await ConnectionRecord.retrieve_by_id(
@@ -91,12 +89,45 @@ async def issue_credential(request: web.BaseRequest):
     return web.json_response(json.loads(credential))
 
 
+@docs(tags=["issue-credential"], summary="Request Credential")
+@request_schema(IssueCredentialSchema())
+async def request_credential(request: web.BaseRequest):
+    context = request.app["request_context"]
+    outbound_handler = request.app["outbound_message_router"]
+
+    body = await request.json()
+    credential_type = body.get("credential_type")
+    credential_values = body.get("credential_values")
+    connection_id = body.get("connection_id")
+
+    try:
+        connection_record: ConnectionRecord = await ConnectionRecord.retrieve_by_id(
+            context, connection_id
+        )
+    except StorageNotFoundError as err:
+        raise web.HTTPNotFound(
+            reason="Couldnt find a connection_record through the connection_id"
+        )
+    if not connection_record.is_ready:
+        raise web.HTTPRequestTimeout(reason="Connection with this agent is not ready")
+
+    request = {
+        "credential_type": credential_type,
+        "credential_values": credential_values,
+    }
+    issue = CredentialRequest(credential=request)
+    await outbound_handler(issue, connection_id=connection_record.connection_id)
+
+    return web.json_response("Success")
+
+
 async def register(app: web.Application):
     """Register routes."""
 
     app.add_routes(
         [
             web.post("/issue-credential/send", issue_credential),
+            web.post("/issue-credential/request", request_credential),
         ]
     )
 
