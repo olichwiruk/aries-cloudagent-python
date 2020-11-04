@@ -6,6 +6,7 @@ from asynctest import TestCase as AsyncTestCase
 from asynctest import mock as async_mock
 from ...wallet.basic import BasicWallet
 from ..pds import *
+from aries_cloudagent.holder.pds import verify_credential
 
 
 TEST_DID = "55GkHamhTU1ZbTbV2ab9DE"
@@ -24,7 +25,7 @@ credential_test_schema = {
         "VerifiableCredential",
         "@TODO should this be oca schema or what dri points to",
     ],
-    "issuer": 1234,
+    "issuer": "1234",
     "issuanceDate": time_now(),
     "credentialSubject": {
         "id": "TODO: Did of subject",
@@ -43,43 +44,51 @@ credential_test_schema = {
 }
 
 
+def assert_that_contains(base: dict, to_verify: dict):
+    # assert that contains at least values of base or more
+    # and these least values are not NULL
+    for key in base:
+        assert to_verify[key] != None
+        assert to_verify[key] != {}
+        assert to_verify[key] != []
+
+
+async def create_test_credential(issuer):
+    test_cred = {
+        "credentialSubject": {
+            "id": "TODO: Did of subject",
+            "ocaSchema": {
+                "dri": "1234",
+                "dataDri": "1234",
+            },
+        },
+    }
+
+    connection = ConnectionRecord(my_did="1234-my", their_did="1234-their")
+    credential, _ = await issuer.create_credential(
+        schema={"credential_type": "TestType"},
+        credential_values=test_cred["credentialSubject"],
+        credential_offer={},
+        credential_request={"connection_record": connection},
+    )
+    credential_dict = json.loads(credential)
+
+    assert credential_dict["credentialSubject"] == test_cred["credentialSubject"]
+
+    return credential_dict
+
+
 class TestPDSIssuer(AsyncTestCase):
     async def setUp(self):
-
         self.wallet = BasicWallet()
         self.issuer: PDSIssuer = PDSIssuer(self.wallet)
         assert self.issuer.wallet is self.wallet
         await self.wallet.create_public_did()
 
     async def test_create_credential(self):
-        connection = ConnectionRecord(my_did="1234-my", their_did="1234-their")
-        credential, _ = await self.issuer.create_credential(
-            schema={"credential_type": "TestType"},
-            credential_values=credential_test_schema["credentialSubject"],
-            credential_offer={},
-            credential_request={"connection_record": connection},
-        )
-        credential_dict = json.loads(credential)
+        credential_dict = await create_test_credential(self.issuer)
 
-        # assert schema contains test schema fields
-        assert (
-            credential_dict["credentialSubject"]
-            == credential_test_schema["credentialSubject"]
-        )
-        assert isinstance(credential, str)
-        for key in credential_test_schema:
-            assert credential_dict[key]
-            for key_proof in credential_test_schema["proof"]:
-                assert credential_dict["proof"][key_proof]
+        assert_that_contains(credential_test_schema, credential_dict)
+        assert_that_contains(credential_test_schema["proof"], credential_dict["proof"])
 
-        proof = credential_dict["proof"]
-        proof_signature = bytes.fromhex(proof["jws"])
-
-        del credential_dict["proof"]
-        credential_base64 = dictionary_to_base64(credential_dict)
-
-        isVerified = await self.wallet.verify_message(
-            credential_base64, proof_signature, proof["verificationMethod"]
-        )
-
-        assert isVerified == True
+        assert await verify_credential(credential_dict, self.wallet) == True

@@ -6,6 +6,31 @@ from .models.credential import *
 from ..storage.base import BaseStorage
 from ..storage.error import StorageNotFoundError, StorageError
 from ..config.injection_context import InjectionContext
+from aries_cloudagent.issuer.pds import dictionary_to_base64
+from aries_cloudagent.wallet.base import BaseWallet
+
+# TODO verifier
+async def verify_credential(credential: dict, wallet) -> bool:
+    proof = credential["proof"]
+    if proof["type"] != "Ed25519Signature2018":
+        print("This proof type is not implemented, ", proof["type"])
+        result = False
+
+    del credential["proof"]
+    proof_signature = bytes.fromhex(proof["jws"])
+    credential_base64 = dictionary_to_base64(credential)
+
+    result = await wallet.verify_message(
+        credential_base64, proof_signature, proof["verificationMethod"]
+    )
+
+    return result
+
+
+# def assert_holder(expression, message):
+#     if not expression:
+#         raise HolderError(message)
+
 
 # TODO: Better error handling
 class PDSHolder(BaseHolder):
@@ -131,11 +156,12 @@ class PDSHolder(BaseHolder):
             the ID of the stored credential
 
         """
-        self.log("store_credential invoked")
+        self.log("store_credential invoked credential_data %s", credential_data)
 
         if not isinstance(credential_data, dict):
             raise HolderError("Credential data has invalid type")
 
+        issuanceDate = credential_data.get("issuanceDate")
         subject = credential_data.get("credentialSubject")
         context = credential_data.get("@context")
         issuer = credential_data.get("issuer")
@@ -145,15 +171,17 @@ class PDSHolder(BaseHolder):
 
         error_msg = " field of credential is empty! It needs to be filled in"
         if issuer is None or "":
-            raise HolderError("Issuer" + error_msg)
+            raise HolderError("issuer" + error_msg)
         if proof is None or {}:
-            raise HolderError("Proof" + error_msg)
+            raise HolderError("proof" + error_msg)
         if type is None or []:
-            raise HolderError("Type" + error_msg)
+            raise HolderError("type" + error_msg)
         if subject is None or {}:
             raise HolderError("subject" + error_msg)
         if context is None or []:
             raise HolderError("@context" + error_msg)
+        if issuanceDate is None or "":
+            raise HolderError("issuanceDate" + error_msg)
 
         error_msg = " field of credential is of incorrect type!"
         if not isinstance(issuer, str):
@@ -169,7 +197,13 @@ class PDSHolder(BaseHolder):
         if not isinstance(type, list):
             raise HolderError("type" + error_msg)
 
+        wallet = await self.context.inject(BaseWallet)
+        isVerified = await verify_credential(credential_data, wallet)
+        if isVerified == False:
+            raise HolderError("Proof is incorrect, could not verify")
+
         credential = THCFCredential(
+            issuanceDate=issuanceDate,
             credentialSubject=subject,
             context=context,
             issuer=issuer,
@@ -179,7 +213,7 @@ class PDSHolder(BaseHolder):
         )
 
         id = await credential.save(self.context, reason="Credential saved to storage")
-        self.log("Credential id: %s serialized %s", id, credential.serialize())
+        self.log("Saved Credential id: %s serialized %s", id, credential.serialize())
 
         return id
 

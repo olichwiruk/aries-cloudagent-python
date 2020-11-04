@@ -20,7 +20,7 @@ class CredentialIssue(AgentMessage):
         self,
         _id: str = None,
         *,
-        credential: dict = {},
+        credential: dict = None,
         **kwargs,
     ):
         """
@@ -38,3 +38,5 @@ class CredentialIssueSchema(AgentMessageSchema):
         """Credential schema metadata."""
 
         model_class = CredentialIssue
+
+    credential = fields.Dict()

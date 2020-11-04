@@ -85,7 +85,7 @@ async def issue_credential(request: web.BaseRequest):
     except IssuerError as err:
         raise web.HTTPError(reason=err.roll_up)
 
-    issue = CredentialIssue(credential=credential)
+    issue = CredentialIssue(credential=json.loads(credential))
     await outbound_handler(issue, connection_id=connection_record.connection_id)
 
     return web.json_response(json.loads(credential))

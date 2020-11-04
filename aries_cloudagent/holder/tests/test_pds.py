@@ -7,45 +7,26 @@ from asynctest import mock as async_mock
 from ..pds import *
 from aries_cloudagent.storage.basic import BasicStorage
 from ..models.credential import THCFCredential
+from aries_cloudagent.wallet.basic import BasicWallet
+from aries_cloudagent.issuer.pds import PDSIssuer
+from aries_cloudagent.connections.models.connection_record import ConnectionRecord
+from ...issuer.tests.test_pds import create_test_credential
 
 
-credential_test_schema = {
-    "@context": [
-        "https://www.w3.org/2018/credentials/v1",
-        "https://www.schema.org",
-    ],
-    "type": [
-        "VerifiableCredential",
-        "example",
-    ],
-    "issuer": "1234",
-    "issuanceDate": "1234",
-    "credentialSubject": {
-        "id": "1234",
-        "ocaSchema": {
-            "dri": "1234",
-            "dataDri": "1234",
-        },
-    },
-    "proof": {
-        "type": "Ed25519Signature2018",
-        "created": "1234",
-        "proofPurpose": "assertionMethod",
-        "verificationMethod": "1234",
-        "jws": "1234",
-    },
-}
-
-
-class TestPDSIssuer(AsyncTestCase):
+class TestPDSHolder(AsyncTestCase):
     async def setUp(self):
         self.context: InjectionContext = InjectionContext()
         storage = BasicStorage()
+        wallet = BasicWallet()
+        issuer = PDSIssuer(wallet)
+        self.credential = await create_test_credential(issuer)
+
         self.context.injector.bind_instance(BaseStorage, storage)
+        self.context.injector.bind_instance(BaseWallet, wallet)
         self.holder = PDSHolder(self.context)
 
-    async def test_create_credential(self):
-        cred_id = await self.holder.store_credential({}, credential_test_schema, {})
+    async def test_store_credential_retrieve_and_delete(self):
+        cred_id = await self.holder.store_credential({}, self.credential, {})
         assert cred_id != None
 
         cred = await THCFCredential.retrieve_by_id(self.context, cred_id)
@@ -54,11 +35,11 @@ class TestPDSIssuer(AsyncTestCase):
 
         # check if dict fields are equal to record
         cred_serialized = cred.serialize()
-        for key in credential_test_schema:
+        for key in self.credential:
             if key == "@context":
-                assert credential_test_schema[key] == cred_serialized["context"]
+                assert self.credential[key] == cred_serialized["context"]
                 continue
-            assert credential_test_schema[key] == cred_serialized[key]
+            assert self.credential[key] == cred_serialized[key]
 
         await self.holder.delete_credential(cred_id)
         with self.assertRaises(HolderError):

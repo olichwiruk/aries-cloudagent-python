@@ -18,6 +18,7 @@ class THCFCredential(BaseRecord):
         type: list = None,
         issuer: str = None,
         proof: dict = None,
+        issuanceDate: str = None,
         record_id: str = None,
         **kwargs
     ):
@@ -28,6 +29,7 @@ class THCFCredential(BaseRecord):
         self.type = type
         self.issuer = issuer
         self.proof = proof
+        self.issuanceDate = issuanceDate
 
     @property
     def record_value(self) -> dict:
@@ -40,6 +42,7 @@ class THCFCredential(BaseRecord):
                 "issuer",
                 "context",
                 "credentialSubject",
+                "issuanceDate",
             )
         }
 
@@ -54,3 +57,4 @@ class THCFCredentialSchema(BaseRecordSchema):
     type = fields.List(fields.Str(), required=False)
     credentialSubject = fields.Dict(required=False)
     proof = fields.Dict(required=False)
+    issuanceDate = fields.Str(required=False)
