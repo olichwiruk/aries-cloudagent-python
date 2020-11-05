@@ -10,50 +10,67 @@ from aries_cloudagent.holder.base import BaseHolder, HolderError
 from aries_cloudagent.issuer.base import BaseIssuer, IssuerError
 from aries_cloudagent.connections.models.connection_record import ConnectionRecord
 import json
+from aries_cloudagent.protocols.issue_credential.v1_1.models.credential_exchange import (
+    CredentialExchangeRecord,
+)
+from .utils import debug_handler
+
 
 # TODO Error handling
 class CredentialRequestHandler(BaseHandler):
     """
-    Message handler logic for incoming credential issues.
+    Message handler logic for incoming credential requests.
     """
 
     async def handle(self, context: RequestContext, responder: BaseResponder):
-        self._logger.debug("CredentialHandler called with context %s", context)
-        assert isinstance(context.message, CredentialRequest)
-        self._logger.info(
-            "Received credential message: %s", context.message.serialize(as_string=True)
+        debug_handler(
+            self._logger.debug, context, CredentialRequest, "CredentialRequestHandler"
+        )
+        message: CredentialRequest = context.message
+        credential = context.message.credential
+        credential_type = credential.get("credential_type")
+        credential_values = credential.get("credential_values")
+
+        assert message._thread_id != None
+        exchange_record: CredentialExchangeRecord = CredentialExchangeRecord(
+            connection_id=responder.connection_id,
+            initiator=CredentialExchangeRecord.INITIATOR_EXTERNAL,
+            role=CredentialExchangeRecord.ROLE_ISSUER,
+            state=CredentialExchangeRecord.STATE_REQUEST_RECEIVED,
+            thread_id=message._thread_id,
+            credential_request=credential,
         )
 
-        if not context.connection_ready:
-            raise HandlerException("No connection established for credential request")
-
-        connection: ConnectionRecord = await ConnectionRecord.retrieve_by_id(
-            context, responder.connection_id
+        credential_exchange_id: CredentialExchangeRecord = await exchange_record.save(
+            context, reason="RequestCredential ExchangeRecord saved"
         )
-        credential_message: CredentialRequest = context.message
-        credential = credential_message.credential
 
-        cred_type = credential.get("credential_type")
-        cred_values = credential.get("credential_values")
-
-        auto_issue = True
-        if auto_issue:
-            issuer: BaseIssuer = await context.inject(BaseIssuer)
-            credential, _ = await issuer.create_credential(
-                schema={
-                    "credential_type": cred_type,
-                },
-                credential_values=cred_values,
-                credential_offer={},
-                credential_request={
-                    "connection_record": connection,
-                },
-            )
-
-            issue = CredentialIssue(credential=json.loads(credential))
-            await responder.send_reply(message=issue)
-
+        self._logger.info("Credential exchange ID %s", credential_exchange_id)
         await responder.send_webhook(
             "TODOInfo_credential_request_received",
-            {"credential": credential, "connection_id": responder.connection_id},
+            {
+                "credential_exchange_id": credential_exchange_id,
+                "connection_id": responder.connection_id,
+            },
         )
+        # auto_issue = True
+        # if auto_issue:
+        #     issuer: BaseIssuer = await context.inject(BaseIssuer)
+        #     credential, _ = await issuer.create_credential(
+        #         schema={
+        #             "credential_type": credential_type,
+        #         },
+        #         credential_values=credential_values,
+        #         credential_offer={},
+        #         credential_request={
+        #             "connection_record": context.connection_record,
+        #         },
+        #     )
+
+        #     issue = CredentialIssue(credential=json.loads(credential))
+        #     await responder.send_reply(message=issue)
+
+        # await responder.send_webhook(
+        #     "TODOInfo_credential_request_received",
+        #     {"credential": credential, "connection_id": responder.connection_id},
+        # )

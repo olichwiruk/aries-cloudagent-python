@@ -27,9 +27,14 @@ async def verify_credential(credential: dict, wallet) -> bool:
     return result
 
 
-# def assert_holder(expression, message):
-#     if not expression:
-#         raise HolderError(message)
+def assert_if_empty_raise_exception(field, message):
+    if field is None or field is "" or field is {} or field is []:
+        raise HolderError(message)
+
+
+def assert_raise_exception(expression, message):
+    if not expression:
+        raise HolderError(message)
 
 
 # TODO: Better error handling
@@ -161,7 +166,7 @@ class PDSHolder(BaseHolder):
         if not isinstance(credential_data, dict):
             raise HolderError("Credential data has invalid type")
 
-        issuanceDate = credential_data.get("issuanceDate")
+        date = credential_data.get("issuanceDate")
         subject = credential_data.get("credentialSubject")
         context = credential_data.get("@context")
         issuer = credential_data.get("issuer")
@@ -170,32 +175,21 @@ class PDSHolder(BaseHolder):
         id = credential_data.get("id")
 
         error_msg = " field of credential is empty! It needs to be filled in"
-        if issuer is None or "":
-            raise HolderError("issuer" + error_msg)
-        if proof is None or {}:
-            raise HolderError("proof" + error_msg)
-        if type is None or []:
-            raise HolderError("type" + error_msg)
-        if subject is None or {}:
-            raise HolderError("subject" + error_msg)
-        if context is None or []:
-            raise HolderError("@context" + error_msg)
-        if issuanceDate is None or "":
-            raise HolderError("issuanceDate" + error_msg)
+        assert_if_empty_raise_exception(issuer, "issuer" + error_msg)
+        assert_if_empty_raise_exception(proof, "proof" + error_msg)
+        assert_if_empty_raise_exception(type, "type" + error_msg)
+        assert_if_empty_raise_exception(subject, "subject" + error_msg)
+        assert_if_empty_raise_exception(context, "@context" + error_msg)
+        assert_if_empty_raise_exception(date, "issuanceDate" + error_msg)
 
         error_msg = " field of credential is of incorrect type!"
-        if not isinstance(issuer, str):
-            raise HolderError("Issuer" + error_msg)
-        if not isinstance(id, str) and id != None:
-            raise HolderError("id" + error_msg)
-        if not isinstance(proof, dict):
-            raise HolderError("proof" + error_msg)
-        if not isinstance(subject, dict):
-            raise HolderError("subject" + error_msg)
-        if not isinstance(context, list):
-            raise HolderError("context" + error_msg)
-        if not isinstance(type, list):
-            raise HolderError("type" + error_msg)
+        assert_raise_exception(isinstance(issuer, str), "issuer" + error_msg)
+        assert_raise_exception(isinstance(proof, dict), "proof" + error_msg)
+        assert_raise_exception(isinstance(type, list), "type" + error_msg)
+        assert_raise_exception(isinstance(subject, dict), "subject" + error_msg)
+        assert_raise_exception(isinstance(context, list), "@context" + error_msg)
+        assert_raise_exception(isinstance(date, str), "issuanceDate" + error_msg)
+        assert_raise_exception(id == None or isinstance(id, str), "id" + error_msg)
 
         wallet = await self.context.inject(BaseWallet)
         isVerified = await verify_credential(credential_data, wallet)
@@ -203,7 +197,7 @@ class PDSHolder(BaseHolder):
             raise HolderError("Proof is incorrect, could not verify")
 
         credential = THCFCredential(
-            issuanceDate=issuanceDate,
+            issuanceDate=date,
             credentialSubject=subject,
             context=context,
             issuer=issuer,

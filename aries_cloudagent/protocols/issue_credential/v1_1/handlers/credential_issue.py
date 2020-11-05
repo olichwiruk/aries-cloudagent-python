@@ -6,6 +6,11 @@ from .....messaging.base_handler import (
 )
 from ..messages.credential_issue import CredentialIssue
 from aries_cloudagent.holder.base import BaseHolder, HolderError
+from .utils import debug_handler
+from aries_cloudagent.protocols.issue_credential.v1_1.models.credential_exchange import (
+    CredentialExchangeRecord,
+)
+from aries_cloudagent.storage.error import StorageNotFoundError
 
 
 class CredentialIssueHandler(BaseHandler):
@@ -14,15 +19,23 @@ class CredentialIssueHandler(BaseHandler):
     """
 
     async def handle(self, context: RequestContext, responder: BaseResponder):
-        self._logger.debug("CredentialHandler called with context %s", context)
-        assert isinstance(context.message, CredentialIssue)
-        self._logger.info(
-            "Received credential message: %s", context.message.serialize(as_string=True)
+        debug_handler(
+            self._logger.debug, context, CredentialIssue, "CredentialIssueHandler"
         )
 
-        if not context.connection_ready:
-            raise HandlerException("No connection established for credential request")
+        try:
+            exchange_record: CredentialExchangeRecord = (
+                await CredentialExchangeRecord.retrieve_by_connection_and_thread(
+                    context, responder.connection_id, context.message._thread_id
+                )
+            )
+        except StorageNotFoundError:
+            raise HandlerException(
+                """Couldn't retrieve ExchangeRecord for this CredentialIssue 
+                as a result, credential issue was not handled"""
+            )
 
+        # TODO: Check Credential request equal to credential
         credential_message: CredentialIssue = context.message
         credential = credential_message.credential
 
@@ -35,11 +48,11 @@ class CredentialIssueHandler(BaseHandler):
             )
         except HolderError as err:
             # TODO Problem report
-            credential_id = err.roll_up
-            self._logger.error(
-                "Error on store_credential async! TODO Error handling %s", err.roll_up
+            raise HandlerException(
+                "Error on store_credential async! TODO Error handling ", err.roll_up
             )
 
+        self._logger.info("Stored Credential ID %s", credential_id)
         await responder.send_webhook(
             "TODOInfocredential_issue_received",
             {"credential_id": credential_id, "connection_id": responder.connection_id},

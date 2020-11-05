@@ -35,35 +35,49 @@ from .messages.credential_issue import CredentialIssue
 from aries_cloudagent.protocols.issue_credential.v1_1.messages.credential_request import (
     CredentialRequest,
 )
+from .models.credential_exchange import CredentialExchangeRecord
 
 
 LOG = logging.getLogger(__name__).info
 
 
-class IssueCredentialSchema(OpenAPISchema):
+class RequestCredentialSchema(OpenAPISchema):
     credential_values = fields.Dict()
     credential_type = fields.Str(required=True)
     connection_id = fields.Str(required=True)
 
 
+class IssueCredentialQuerySchema(OpenAPISchema):
+    credential_exchange_id = fields.Str(required=False)
+
+
 @docs(tags=["issue-credential"], summary="Issue credential ")
-@request_schema(IssueCredentialSchema())
+@querystring_schema(IssueCredentialQuerySchema())
 async def issue_credential(request: web.BaseRequest):
     context = request.app["request_context"]
     outbound_handler = request.app["outbound_message_router"]
 
-    body = await request.json()
-    credential_type = body.get("credential_type")
-    credential_values = body.get("credential_values")
-    connection_id = body.get("connection_id")
+    credential_exchange_id = request.query.get("credential_exchange_id")
+
+    try:
+        exchange_record: CredentialExchangeRecord = (
+            await CredentialExchangeRecord.retrieve_by_id(
+                context, credential_exchange_id
+            )
+        )
+    except StorageNotFoundError as err:
+        raise web.HTTPNotFound(
+            reason="Couldnt find a exchange_record through the credential_exchange_id"
+        )
 
     try:
         connection_record: ConnectionRecord = await ConnectionRecord.retrieve_by_id(
-            context, connection_id
+            context, exchange_record.connection_id
         )
     except StorageNotFoundError as err:
         raise web.HTTPNotFound(
             reason="Couldnt find a connection_record through the connection_id"
+            + err.roll_up
         )
     if not connection_record.is_ready:
         raise web.HTTPRequestTimeout(reason="Connection with this agent is not ready")
@@ -72,9 +86,13 @@ async def issue_credential(request: web.BaseRequest):
         issuer: BaseIssuer = await context.inject(BaseIssuer)
         credential, _ = await issuer.create_credential(
             schema={
-                "credential_type": credential_type,
+                "credential_type": exchange_record.credential_request.get(
+                    "credential_type"
+                ),
             },
-            credential_values=credential_values,
+            credential_values=exchange_record.credential_request.get(
+                "credential_values"
+            ),
             credential_offer={},
             credential_request={
                 "connection_record": connection_record,
@@ -84,13 +102,14 @@ async def issue_credential(request: web.BaseRequest):
         raise web.HTTPError(reason=err.roll_up)
 
     issue = CredentialIssue(credential=json.loads(credential))
+    issue.assign_thread_id(exchange_record.thread_id)
     await outbound_handler(issue, connection_id=connection_record.connection_id)
 
     return web.json_response(json.loads(credential))
 
 
 @docs(tags=["issue-credential"], summary="Request Credential")
-@request_schema(IssueCredentialSchema())
+@request_schema(RequestCredentialSchema())
 async def request_credential(request: web.BaseRequest):
     context = request.app["request_context"]
     outbound_handler = request.app["outbound_message_router"]
@@ -118,7 +137,21 @@ async def request_credential(request: web.BaseRequest):
     issue = CredentialRequest(credential=request)
     await outbound_handler(issue, connection_id=connection_record.connection_id)
 
-    return web.json_response("Success")
+    assert issue._thread_id != None
+    exchange = CredentialExchangeRecord(
+        connection_id=connection_id,
+        thread_id=issue._thread_id,
+        initiator=CredentialExchangeRecord.INITIATOR_SELF,
+        role=CredentialExchangeRecord.ROLE_HOLDER,
+        state=CredentialExchangeRecord.STATE_REQUEST_SENT,
+        credential_request=request,
+    )
+
+    exchange_id = await exchange.save(
+        context, reason="Save record of agent credential exchange"
+    )
+
+    return web.json_response({"credential_exchange_id": exchange_id})
 
 
 async def register(app: web.Application):
