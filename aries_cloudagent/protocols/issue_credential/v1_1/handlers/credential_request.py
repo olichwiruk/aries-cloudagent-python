@@ -9,6 +9,7 @@ from ..messages.credential_request import CredentialRequest
 from aries_cloudagent.holder.base import BaseHolder, HolderError
 from aries_cloudagent.issuer.base import BaseIssuer, IssuerError
 from aries_cloudagent.connections.models.connection_record import ConnectionRecord
+import json
 
 # TODO Error handling
 class CredentialRequestHandler(BaseHandler):
@@ -49,7 +50,7 @@ class CredentialRequestHandler(BaseHandler):
                 },
             )
 
-            issue = CredentialIssue(credential=credential)
+            issue = CredentialIssue(credential=json.loads(credential))
             await responder.send_reply(message=issue)
 
         await responder.send_webhook(
