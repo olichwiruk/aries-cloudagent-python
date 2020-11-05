@@ -239,10 +239,6 @@ class PDSIssuer(BaseIssuer):
         credential_dict.update({"proof": proof_dict})
         self.log("Proof dictionary: %s", credential_dict)
 
-        # Create a credential schema
-        # Fill it with data
-        # Sign and add the signature to schema
-
         return json.dumps(credential_dict), None
 
     async def revoke_credentials(

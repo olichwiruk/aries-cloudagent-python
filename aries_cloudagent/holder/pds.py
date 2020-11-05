@@ -217,6 +217,24 @@ class PDSHolder(BaseHolder):
 
         return id
 
+    async def get_credentials(self) -> list:
+        """
+        Retrieve credential list based on a filter(TODO)
+
+        """
+        self.log("get_credential invoked")
+
+        try:
+            credentials: THCFCredential = await THCFCredential.query(self.context)
+        except StorageError as err:
+            raise HolderError(err.roll_up)
+
+        result = []
+        for cred in credentials:
+            result.append(cred.serialize())
+
+        return result
+
     async def create_revocation_state(
         self,
         cred_rev_id: str,

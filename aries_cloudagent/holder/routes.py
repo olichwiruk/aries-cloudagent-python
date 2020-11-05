@@ -79,26 +79,6 @@ class CredentialsListSchema(OpenAPISchema):
     results = fields.List(fields.Nested(CredentialSchema()))
 
 
-class CredentialsListQueryStringSchema(OpenAPISchema):
-    """Parameters and validators for query string in credentials list query."""
-
-    start = fields.Int(
-        description="Start index",
-        required=False,
-        **WHOLE_NUM,
-    )
-    count = fields.Int(
-        description="Maximum number to retrieve",
-        required=False,
-        **NATURAL_NUM,
-    )
-    wql = fields.Str(
-        description="(JSON) WQL query",
-        required=False,
-        **INDY_WQL,
-    )
-
-
 class CredIdMatchInfoSchema(OpenAPISchema):
     """Path parameters and validators for request taking credential id."""
 
@@ -182,13 +162,64 @@ async def credentials_remove(request: web.BaseRequest):
     return web.json_response({})
 
 
+class PDSCredentialsListSchema(OpenAPISchema):
+    pass
+
+
 @docs(
     tags=["credentials"],
     summary="Fetch credentials from wallet",
 )
-@querystring_schema(CredentialsListQueryStringSchema())
-@response_schema(CredentialsListSchema(), 200)
+@querystring_schema(PDSCredentialsListSchema())
 async def credentials_list(request: web.BaseRequest):
+    """
+    Request handler for searching credential records.
+
+    Args:
+        request: aiohttp request object
+
+    Returns:
+        The credential list response
+
+    """
+    context = request.app["request_context"]
+
+    holder: BaseHolder = await context.inject(BaseHolder)
+    try:
+        credentials = await holder.get_credentials()
+    except HolderError as err:
+        raise web.HTTPBadRequest(reason=err.roll_up) from err
+
+    return web.json_response({"results": credentials})
+
+
+class IndyCredentialsListQueryStringSchema(OpenAPISchema):
+    """Parameters and validators for query string in credentials list query."""
+
+    start = fields.Int(
+        description="Start index",
+        required=False,
+        **WHOLE_NUM,
+    )
+    count = fields.Int(
+        description="Maximum number to retrieve",
+        required=False,
+        **NATURAL_NUM,
+    )
+    wql = fields.Str(
+        description="(JSON) WQL query",
+        required=False,
+        **INDY_WQL,
+    )
+
+
+# @docs(
+#     tags=["credentials"],
+#     summary="Fetch credentials from wallet",
+# )
+# @querystring_schema(IndyCredentialsListQueryStringSchema())
+# @response_schema(CredentialsListSchema(), 200)
+async def indy_credentials_list(request: web.BaseRequest):
     """
     Request handler for searching credential records.
 
