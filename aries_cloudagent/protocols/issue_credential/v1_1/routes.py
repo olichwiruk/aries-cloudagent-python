@@ -51,14 +51,24 @@ class IssueCredentialQuerySchema(OpenAPISchema):
     credential_exchange_id = fields.Str(required=False)
 
 
-@docs(tags=["issue-credential"], summary="Issue credential ")
-@querystring_schema(IssueCredentialQuerySchema())
-async def issue_credential(request: web.BaseRequest):
-    context = request.app["request_context"]
-    outbound_handler = request.app["outbound_message_router"]
+async def retrieve_connection(context, connection_id):
+    try:
+        connection_record: ConnectionRecord = await ConnectionRecord.retrieve_by_id(
+            context, connection_id
+        )
+    except StorageNotFoundError as err:
+        raise web.HTTPNotFound(
+            reason="Couldnt find a connection_record through the connection_id"
+        )
+    except StorageError as err:
+        raise web.HTTPInternalServerError(reason=err.roll_up)
+    if not connection_record.is_ready:
+        raise web.HTTPRequestTimeout(reason="Connection with this agent is not ready")
 
-    credential_exchange_id = request.query.get("credential_exchange_id")
+    return connection_record
 
+
+async def retrieve_credential_exchange(context, credential_exchange_id):
     try:
         exchange_record: CredentialExchangeRecord = (
             await CredentialExchangeRecord.retrieve_by_id(
@@ -69,41 +79,43 @@ async def issue_credential(request: web.BaseRequest):
         raise web.HTTPNotFound(
             reason="Couldnt find a exchange_record through the credential_exchange_id"
         )
+    except StorageError as err:
+        raise web.HTTPInternalServerError(reason=err.roll_up)
 
-    try:
-        connection_record: ConnectionRecord = await ConnectionRecord.retrieve_by_id(
-            context, exchange_record.connection_id
-        )
-    except StorageNotFoundError as err:
-        raise web.HTTPNotFound(
-            reason="Couldnt find a connection_record through the connection_id"
-            + err.roll_up
-        )
-    if not connection_record.is_ready:
-        raise web.HTTPRequestTimeout(reason="Connection with this agent is not ready")
+    return exchange_record
+
+
+@docs(tags=["issue-credential"], summary="Issue credential ")
+@querystring_schema(IssueCredentialQuerySchema())
+async def issue_credential(request: web.BaseRequest):
+    context = request.app["request_context"]
+    outbound_handler = request.app["outbound_message_router"]
+
+    credential_exchange_id = request.query.get("credential_exchange_id")
+    exchange = await retrieve_credential_exchange(context, credential_exchange_id)
+    connection = await retrieve_connection(context, exchange.connection_id)
 
     try:
         issuer: BaseIssuer = await context.inject(BaseIssuer)
         credential, _ = await issuer.create_credential(
             schema={
-                "credential_type": exchange_record.credential_request.get(
-                    "credential_type"
-                ),
+                "credential_type": exchange.credential_request.get("credential_type"),
             },
-            credential_values=exchange_record.credential_request.get(
-                "credential_values"
-            ),
+            credential_values=exchange.credential_request.get("credential_values"),
             credential_offer={},
             credential_request={
-                "connection_record": connection_record,
+                "connection_record": connection,
             },
         )
     except IssuerError as err:
         raise web.HTTPError(reason=err.roll_up)
 
     issue = CredentialIssue(credential=json.loads(credential))
-    issue.assign_thread_id(exchange_record.thread_id)
-    await outbound_handler(issue, connection_id=connection_record.connection_id)
+    issue.assign_thread_id(exchange.thread_id)
+    await outbound_handler(issue, connection_id=connection.connection_id)
+
+    exchange.state = CredentialExchangeRecord.STATE_ISSUED
+    await exchange.save(context)
 
     return web.json_response(json.loads(credential))
 
@@ -118,17 +130,7 @@ async def request_credential(request: web.BaseRequest):
     credential_type = body.get("credential_type")
     credential_values = body.get("credential_values")
     connection_id = body.get("connection_id")
-
-    try:
-        connection_record: ConnectionRecord = await ConnectionRecord.retrieve_by_id(
-            context, connection_id
-        )
-    except StorageNotFoundError as err:
-        raise web.HTTPNotFound(
-            reason="Couldnt find a connection_record through the connection_id"
-        )
-    if not connection_record.is_ready:
-        raise web.HTTPRequestTimeout(reason="Connection with this agent is not ready")
+    connection_record = await retrieve_connection(context, connection_id)
 
     request = {
         "credential_type": credential_type,

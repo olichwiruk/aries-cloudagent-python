@@ -3,7 +3,11 @@ from .....messaging.base_handler import HandlerException
 
 def debug_handler(log, context, MessageClass, handler_name_string):
     """
-    log - logging function
+    Checks if MessageClass is of correct type, checks if connection is intact
+    And logs info about Handler, just a utility procedure
+
+    Args:
+        log - logging procedure
     """
     log("%s called with context %s", handler_name_string, context)
     assert isinstance(context.message, MessageClass)

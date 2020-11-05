@@ -53,24 +53,3 @@ class CredentialRequestHandler(BaseHandler):
                 "connection_id": responder.connection_id,
             },
         )
-        # auto_issue = True
-        # if auto_issue:
-        #     issuer: BaseIssuer = await context.inject(BaseIssuer)
-        #     credential, _ = await issuer.create_credential(
-        #         schema={
-        #             "credential_type": credential_type,
-        #         },
-        #         credential_values=credential_values,
-        #         credential_offer={},
-        #         credential_request={
-        #             "connection_record": context.connection_record,
-        #         },
-        #     )
-
-        #     issue = CredentialIssue(credential=json.loads(credential))
-        #     await responder.send_reply(message=issue)
-
-        # await responder.send_webhook(
-        #     "TODOInfo_credential_request_received",
-        #     {"credential": credential, "connection_id": responder.connection_id},
-        # )

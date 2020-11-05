@@ -35,22 +35,43 @@ class CredentialIssueHandler(BaseHandler):
                 as a result, credential issue was not handled"""
             )
 
-        # TODO: Check Credential request equal to credential
         credential_message: CredentialIssue = context.message
-        credential = credential_message.credential
+        requested_credential = exchange_record.credential_request
+        issued_credential = credential_message.credential
+
+        if requested_credential["credential_type"] not in issued_credential["type"]:
+            raise HandlerException(
+                f"""Requested Credential TYPE differs from Issued Credential,
+                RequestedCredential: {requested_credential},
+                IssuedCredential: {issued_credential}"""
+            )
+
+        for key in requested_credential["credential_values"]:
+            if (
+                issued_credential["credentialSubject"][key]
+                != requested_credential["credential_values"][key]
+            ):
+                raise HandlerException(
+                    f"""Requested Credential VALUES differ from Issued Credential,
+                    RequestedCredential: {requested_credential},
+                    IssuedCredential: {issued_credential}"""
+                )
 
         holder: BaseHolder = await context.inject(BaseHolder)
         try:
             credential_id = await holder.store_credential(
                 credential_definition={},
-                credential_data=credential,
+                credential_data=issued_credential,
                 credential_request_metadata={},
             )
         except HolderError as err:
             # TODO Problem report
             raise HandlerException(
-                "Error on store_credential async! TODO Error handling ", err.roll_up
+                "Error on store_credential async! TODO Error handling", err.roll_up
             )
+
+        exchange_record.state = exchange_record.STATE_ISSUED
+        exchange_record.credential_id = credential_id
 
         self._logger.info("Stored Credential ID %s", credential_id)
         await responder.send_webhook(
