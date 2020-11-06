@@ -39,7 +39,9 @@ def assert_raise_exception(expression, message):
 
 # TODO: Better error handling
 class PDSHolder(BaseHolder):
-    """PDS class for holder."""
+    """It requieres context with bound storage!
+    # TODO: Maybe should consider manually packing
+    records into storage so that only storage would be requiered?"""
 
     def __init__(self, context):
         self.log = logging.getLogger(__name__).info

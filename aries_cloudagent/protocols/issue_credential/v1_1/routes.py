@@ -85,6 +85,36 @@ async def retrieve_credential_exchange(context, credential_exchange_id):
     return exchange_record
 
 
+# TODO: Not connection record
+async def create_credential(
+    context, credential_request, connection_record, exception=web.HTTPError
+) -> dict:
+    """
+    Args:
+        credential_request - dictionary containing "credential_values" and
+        "credential_type"
+        exception - pass in exception if you are using this outside of routes
+    """
+    credential_type = credential_request.get("credential_type")
+    credential_values = credential_request.get("credential_values")
+    try:
+        issuer: BaseIssuer = await context.inject(BaseIssuer)
+        credential, _ = await issuer.create_credential(
+            schema={
+                "credential_type": credential_type,
+            },
+            credential_values=credential_values,
+            credential_offer={},
+            credential_request={
+                "connection_record": connection_record,
+            },
+        )
+    except IssuerError as err:
+        raise exception(reason=err.roll_up)
+
+    return json.loads(credential)
+
+
 @docs(tags=["issue-credential"], summary="Issue credential ")
 @querystring_schema(IssueCredentialQuerySchema())
 async def issue_credential(request: web.BaseRequest):
@@ -94,23 +124,10 @@ async def issue_credential(request: web.BaseRequest):
     credential_exchange_id = request.query.get("credential_exchange_id")
     exchange = await retrieve_credential_exchange(context, credential_exchange_id)
     connection = await retrieve_connection(context, exchange.connection_id)
+    request = exchange.credential_request
+    credential = await create_credential(context, request, connection)
 
-    try:
-        issuer: BaseIssuer = await context.inject(BaseIssuer)
-        credential, _ = await issuer.create_credential(
-            schema={
-                "credential_type": exchange.credential_request.get("credential_type"),
-            },
-            credential_values=exchange.credential_request.get("credential_values"),
-            credential_offer={},
-            credential_request={
-                "connection_record": connection,
-            },
-        )
-    except IssuerError as err:
-        raise web.HTTPError(reason=err.roll_up)
-
-    issue = CredentialIssue(credential=json.loads(credential))
+    issue = CredentialIssue(credential=credential)
     issue.assign_thread_id(exchange.thread_id)
     await outbound_handler(issue, connection_id=connection.connection_id)
 
