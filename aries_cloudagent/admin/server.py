@@ -1,5 +1,6 @@
 """Admin server classes."""
 
+import os
 import asyncio
 import logging
 from typing import Callable, Coroutine, Sequence, Set
@@ -55,6 +56,11 @@ class AdminStatusReadinessSchema(Schema):
     """Schema for the readiness endpoint."""
 
     ready = fields.Boolean(description="Readiness status", example=True)
+
+class AdminInfoSchema(Schema):
+    """Schema for the info endpoint."""
+
+    websocket_server_url = fields.Str(description="WebSocket server url", example=True)
 
 
 class AdminResponder(BaseResponder):
@@ -297,6 +303,7 @@ class AdminServer(BaseAdminServer):
                 web.post("/status/reset", self.status_reset_handler),
                 web.get("/status/live", self.liveliness_handler, allow_head=False),
                 web.get("/status/ready", self.readiness_handler, allow_head=False),
+                web.get("/info", self.info_handler, allow_head=False),
                 web.get("/shutdown", self.shutdown_handler, allow_head=False),
                 web.get("/ws", self.websocket_handler, allow_head=False),
             ]
@@ -493,6 +500,15 @@ class AdminServer(BaseAdminServer):
             return web.json_response({"ready": app_ready})
         else:
             raise web.HTTPServiceUnavailable(reason="Service not ready")
+
+    @docs(tags=["server"], summary="Server info")
+    @response_schema(AdminInfoSchema(), 200)
+    async def info_handler(self, request: web.BaseRequest):
+        default_host = os.getenv("ACAPY_ENDPOINT").split("//")[-1]
+        ws_url = os.getenv("WEBSOCKET_SERVER_URL")
+        return web.json_response({
+            "websocket_server_url": ws_url.replace("default_host", default_host)
+        })
 
     @docs(tags=["server"], summary="Shut down server")
     async def shutdown_handler(self, request: web.BaseRequest):
