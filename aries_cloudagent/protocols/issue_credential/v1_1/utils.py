@@ -1,9 +1,12 @@
 from aries_cloudagent.storage.error import StorageError, StorageNotFoundError
 from aiohttp import web
 from aries_cloudagent.connections.models.connection_record import ConnectionRecord
-from aries_cloudagent.protocols.issue_credential.v1_1.models.credential_exchange import CredentialExchangeRecord
+from aries_cloudagent.protocols.issue_credential.v1_1.models.credential_exchange import (
+    CredentialExchangeRecord,
+)
 from aries_cloudagent.issuer.base import BaseIssuer, IssuerError
 import json
+
 
 async def retrieve_connection(context, connection_id):
     try:
@@ -17,7 +20,7 @@ async def retrieve_connection(context, connection_id):
     except StorageError as err:
         raise web.HTTPInternalServerError(reason=err.roll_up)
     if not connection_record.is_ready:
-        raise web.HTTPRequestTimeout(reason="Connection with this agent is not ready")
+        raise web.HTTPRequestTimeout(reason=f"Connection {connection_id} not ready")
 
     return connection_record
 
