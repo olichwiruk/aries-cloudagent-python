@@ -6,7 +6,7 @@ from asynctest import TestCase as AsyncTestCase
 from asynctest import mock as async_mock
 from ...wallet.basic import BasicWallet
 from ..pds import *
-from aries_cloudagent.holder.pds import verify_credential
+from ...aathcf.credentials import verify_proof
 
 
 TEST_DID = "55GkHamhTU1ZbTbV2ab9DE"
@@ -91,4 +91,4 @@ class TestPDSIssuer(AsyncTestCase):
         assert_that_contains(credential_test_schema, credential_dict)
         assert_that_contains(credential_test_schema["proof"], credential_dict["proof"])
 
-        assert await verify_credential(credential_dict, self.wallet) == True
+        assert await verify_proof(self.wallet, credential_dict) == True

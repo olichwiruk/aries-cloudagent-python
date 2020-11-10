@@ -20,12 +20,13 @@ from aries_cloudagent.protocols.issue_credential.v1_1.models.credential_exchange
 )
 from aries_cloudagent.issuer.pds import PDSIssuer
 from aries_cloudagent.wallet.basic import BasicWallet
-from ...routes import create_credential
+from ...utils import create_credential
 from aries_cloudagent.connections.models.connection_record import ConnectionRecord
 from aries_cloudagent.issuer.base import BaseIssuer
 from aries_cloudagent.holder.base import BaseHolder
 from aries_cloudagent.holder.pds import PDSHolder
 from aries_cloudagent.wallet.base import BaseWallet
+import json
 
 credential_request = {
     "credential_type": "TEST",
@@ -38,12 +39,15 @@ thread_id = "1234"
 class TestCredentialIssueHandler(AsyncTestCase):
     async def test_is_handler_saving_record(self):
         context = RequestContext()
-        context.message_receipt = MessageReceipt()
-
+        # wallet is required for issuer to sign stuff cause it holds keys
         wallet = BasicWallet()
+        # storage is required to save exchange record and save credential
         storage = BasicStorage(wallet)
+        # issuer required to create credential
         issuer = PDSIssuer(wallet)
+        # holder requiered to save credential
         holder = PDSHolder(context)
+
         context.injector.bind_instance(BaseWallet, wallet)
         context.injector.bind_instance(BaseStorage, storage)
         context.injector.bind_instance(BaseIssuer, issuer)
@@ -70,3 +74,20 @@ class TestCredentialIssueHandler(AsyncTestCase):
         responder.connection_id = connection_id
 
         await handler_inst.handle(context, responder)
+
+        credential_id = responder.webhooks[0][1]["credential_id"]
+        assert credential_id
+        credential = await holder.get_credential(credential_id)
+        credential = json.loads(credential)
+        assert credential["credentialSubject"]
+
+        for key in credential_request["credential_values"]:
+            if (
+                credential["credentialSubject"][key]
+                != credential_request["credential_values"][key]
+            ):
+                raise Exception(
+                    f"""Requested Credential VALUES differ from Issued Credential,
+                    RequestedCredential: {credential_request},
+                    IssuedCredential: {credential}"""
+                )

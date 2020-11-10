@@ -23,9 +23,7 @@ class CredentialRequest(AgentMessage):
         credential: dict = None,
         **kwargs,
     ):
-        """
-        Initialize credential issue object.
-        """
+        """Initialize credential issue object."""
         super().__init__(_id=_id, **kwargs)
         # TODO; Schema
         self.credential = credential

@@ -1,4 +1,6 @@
 import logging
+from marshmallow import Schema
+from marshmallow.utils import INCLUDE
 from typing import Tuple, Union
 from ..core.error import BaseError
 from .base import *
@@ -6,40 +8,18 @@ from .models.credential import *
 from ..storage.base import BaseStorage
 from ..storage.error import StorageNotFoundError, StorageError
 from ..config.injection_context import InjectionContext
-from aries_cloudagent.issuer.pds import dictionary_to_base64
 from aries_cloudagent.wallet.base import BaseWallet
-
-# TODO verifier
-async def verify_credential(credential: dict, wallet) -> bool:
-    proof = credential["proof"]
-    if proof["type"] != "Ed25519Signature2018":
-        print("This proof type is not implemented, ", proof["type"])
-        result = False
-
-    del credential["proof"]
-    proof_signature = bytes.fromhex(proof["jws"])
-    credential_base64 = dictionary_to_base64(credential)
-
-    result = await wallet.verify_message(
-        credential_base64, proof_signature, proof["verificationMethod"]
-    )
-
-    return result
-
-
-def assert_if_empty_raise_exception(field, message):
-    if field is None or field is "" or field is {} or field is []:
-        raise HolderError(message)
-
-
-def assert_raise_exception(expression, message):
-    if not expression:
-        raise HolderError(message)
+from ..messaging.valid import UUIDFour, IndyISO8601DateTime, JSONWebToken
+from aries_cloudagent.aathcf.credentials import (
+    CredentialSchema,
+    PresentationSchema,
+    verify_proof,
+)
 
 
 # TODO: Better error handling
 class PDSHolder(BaseHolder):
-    """It requieres context with bound storage!
+    """It requires context with bound storage!
     # TODO: Maybe should consider manually packing
     records into storage so that only storage would be requiered?"""
 
@@ -118,7 +98,48 @@ class PDSHolder(BaseHolder):
             credential_definitions: Indy formatted credential definitions JSON
             rev_states: Indy format revocation states JSON
         """
-        pass
+        if presentation_request.get("@context") != None:
+            presentation_request["context"] = presentation_request.get("@context")
+            presentation_request.pop("@context", "skip error")
+
+        self.log(
+            "Validation: ",
+        )
+        pres = PresentationSchema()
+        pres = pres.validate(presentation_request)
+        return pres
+
+    #     {
+    #         "name": string,
+    #         "version": string,
+    #         "nonce": string, - a big number represented as a string (use `generate_nonce` function to generate 80-bit number)
+    #         "requested_attributes": { // set of requested attributes
+    #              "<attr_referent>": <attr_info>, // see below
+    #              ...,
+    #         },
+    #         "requested_predicates": { // set of requested predicates
+    #              "<predicate_referent>": <predicate_info>, // see below
+    #              ...,
+    #          },
+    #         "non_revoked": Optional<<non_revoc_interval>>, // see below,
+    #                        // If specified prover must proof non-revocation
+    #                        // for date in this interval for each attribute
+    #                        // (applies to every attribute and predicate but can be overridden on attribute level)
+    #                        // (can be overridden on attribute level)
+    #     }
+    # :param requested_credentials_json: either a credential or self-attested attribute for each requested attribute
+    #     {
+    #         "self_attested_attributes": {
+    #             "self_attested_attribute_referent": string
+    #         },
+    #         "requested_attributes": {
+    #             "requested_attribute_referent_1": {"cred_id": string, "timestamp": Optional<number>, revealed: <bool> }},
+    #             "requested_attribute_referent_2": {"cred_id": string, "timestamp": Optional<number>, revealed: <bool> }}
+    #         },
+    #         "requested_predicates": {
+    #             "requested_predicates_referent_1": {"cred_id": string, "timestamp": Optional<number> }},
+    #         }
+    #     }
 
     async def create_credential_request(
         self, credential_offer: dict, credential_definition: dict, holder_did: str
@@ -165,47 +186,33 @@ class PDSHolder(BaseHolder):
         """
         self.log("store_credential invoked credential_data %s", credential_data)
 
-        if not isinstance(credential_data, dict):
-            raise HolderError("Credential data has invalid type")
+        credential_copy = credential_data.copy()
 
-        date = credential_data.get("issuanceDate")
-        subject = credential_data.get("credentialSubject")
-        context = credential_data.get("@context")
-        issuer = credential_data.get("issuer")
-        proof = credential_data.get("proof")
-        type = credential_data.get("type")
-        id = credential_data.get("id")
+        if (
+            credential_copy.get("@context") != None
+            and credential_copy.get("context") == None
+        ):
+            credential_copy["context"] = credential_copy.get("@context")
+            credential_copy.pop("@context", "skip errors")
 
-        error_msg = " field of credential is empty! It needs to be filled in"
-        assert_if_empty_raise_exception(issuer, "issuer" + error_msg)
-        assert_if_empty_raise_exception(proof, "proof" + error_msg)
-        assert_if_empty_raise_exception(type, "type" + error_msg)
-        assert_if_empty_raise_exception(subject, "subject" + error_msg)
-        assert_if_empty_raise_exception(context, "@context" + error_msg)
-        assert_if_empty_raise_exception(date, "issuanceDate" + error_msg)
-
-        error_msg = " field of credential is of incorrect type!"
-        assert_raise_exception(isinstance(issuer, str), "issuer" + error_msg)
-        assert_raise_exception(isinstance(proof, dict), "proof" + error_msg)
-        assert_raise_exception(isinstance(type, list), "type" + error_msg)
-        assert_raise_exception(isinstance(subject, dict), "subject" + error_msg)
-        assert_raise_exception(isinstance(context, list), "@context" + error_msg)
-        assert_raise_exception(isinstance(date, str), "issuanceDate" + error_msg)
-        assert_raise_exception(id == None or isinstance(id, str), "id" + error_msg)
+        credential_schema = CredentialSchema()
+        errors = credential_schema.validate(credential_copy)
+        if errors != {}:
+            raise HolderError(errors)
 
         wallet = await self.context.inject(BaseWallet)
-        isVerified = await verify_credential(credential_data, wallet)
+        isVerified = await verify_proof(wallet, credential_data)
         if isVerified == False:
             raise HolderError("Proof is incorrect, could not verify")
 
         credential = THCFCredential(
-            issuanceDate=date,
-            credentialSubject=subject,
-            context=context,
-            issuer=issuer,
-            proof=proof,
-            type=type,
-            id=id,
+            issuanceDate=credential_data.get("issuanceDate"),
+            credentialSubject=credential_data.get("credentialSubject"),
+            context=credential_data.get("@context"),
+            issuer=credential_data.get("issuer"),
+            proof=credential_data.get("proof"),
+            type=credential_data.get("type"),
+            id=credential_data.get("id"),
         )
 
         id = await credential.save(self.context, reason="Credential saved to storage")

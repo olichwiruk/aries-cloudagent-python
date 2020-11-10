@@ -8,13 +8,13 @@ from .....messaging.models.base_record import BaseExchangeRecord, BaseExchangeSc
 from .....messaging.valid import UUIDFour
 
 
-class V10PresentationExchange(BaseExchangeRecord):
+class THCFPresentationExchange(BaseExchangeRecord):
     """Represents an Aries#0037 v1.0 presentation exchange."""
 
     class Meta:
-        """V10PresentationExchange metadata."""
+        """THCFPresentationExchange metadata."""
 
-        schema_class = "V10PresentationExchangeSchema"
+        schema_class = "THCFPresentationExchangeSchema"
 
     RECORD_TYPE = "presentation_exchange_v10"
     RECORD_ID_NAME = "presentation_exchange_id"
@@ -102,13 +102,13 @@ class V10PresentationExchange(BaseExchangeRecord):
         return super().__eq__(other)
 
 
-class V10PresentationExchangeSchema(BaseExchangeSchema):
+class THCFPresentationExchangeSchema(BaseExchangeSchema):
     """Schema for de/serialization of v1.0 presentation exchange records."""
 
     class Meta:
-        """V10PresentationExchangeSchema metadata."""
+        """THCFPresentationExchangeSchema metadata."""
 
-        model_class = V10PresentationExchange
+        model_class = THCFPresentationExchange
 
     presentation_exchange_id = fields.Str(
         required=False,
@@ -128,19 +128,19 @@ class V10PresentationExchangeSchema(BaseExchangeSchema):
     initiator = fields.Str(
         required=False,
         description="Present-proof exchange initiator: self or external",
-        example=V10PresentationExchange.INITIATOR_SELF,
+        example=THCFPresentationExchange.INITIATOR_SELF,
         validate=validate.OneOf(["self", "external"]),
     )
     role = fields.Str(
         required=False,
         description="Present-proof exchange role: prover or verifier",
-        example=V10PresentationExchange.ROLE_PROVER,
+        example=THCFPresentationExchange.ROLE_PROVER,
         validate=validate.OneOf(["prover", "verifier"]),
     )
     state = fields.Str(
         required=False,
         description="Present-proof exchange state",
-        example=V10PresentationExchange.STATE_VERIFIED,
+        example=THCFPresentationExchange.STATE_VERIFIED,
     )
     presentation_proposal_dict = fields.Dict(
         required=False, description="Serialized presentation proposal message"

@@ -23,19 +23,21 @@ from aries_cloudagent.protocols.issue_credential.v1_1.models.credential_exchange
 class TestCredentialOfferHandler(AsyncTestCase):
     async def test_is_saving_record(self):
         context = RequestContext()
-        context.message_receipt = MessageReceipt()
         storage = BasicStorage()
+
         context.injector.bind_instance(BaseStorage, storage)
+        context.connection_ready = True
         context.message = CredentialRequest(
             credential={
                 "credential_type": "TEST",
                 "credential_values": {"test": "one", "value": "two"},
             }
         )
-        context.connection_ready = True
-        handler_inst = CredentialRequestHandler()
+
         responder = MockResponder()
         responder.connection_id = "1234"
+
+        handler_inst = CredentialRequestHandler()
         await handler_inst.handle(context, responder)
 
         assert len(responder.messages) == 0

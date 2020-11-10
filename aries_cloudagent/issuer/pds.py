@@ -16,14 +16,8 @@ from .base import (
 )
 from aries_cloudagent.wallet.util import bytes_to_b64
 from ..messaging.util import time_now
-
-
-def dictionary_to_base64(dictionary):
-    dictionary_str = str(dictionary).encode("utf-8")
-    dictionary_bytes = bytes(dictionary_str)
-    dictionary_base64 = bytes_to_b64(dictionary_bytes).encode("utf-8")
-
-    return dictionary_base64
+from aries_cloudagent.wallet.error import WalletError
+from ..aathcf.credentials import create_proof
 
 
 class PDSIssuer(BaseIssuer):
@@ -208,33 +202,10 @@ class PDSIssuer(BaseIssuer):
             #     },
         }
 
-        credential_base64 = dictionary_to_base64(credential_dict)
-        signing_key: KeyInfo = await self.wallet.create_signing_key()
-        signature_bytes: bytes = await self.wallet.sign_message(
-            credential_base64, signing_key.verkey
-        )
-        signature_hex = signature_bytes.hex()
-
-        proof_dict = {
-            "type": "Ed25519Signature2018",
-            "created": time_now(),
-            # If the cryptographic suite expects a proofPurpose property,
-            # it is expected to exist and be a valid value, such as assertionMethod.
-            #
-            "proofPurpose": "assertionMethod",
-            # @TODO: verification method should point to something
-            # that lets you verify the data, reference to signing entity
-            # @
-            # The verificationMethod property specifies,
-            # for example, the public key that can be used
-            # to verify the digital signature
-            # @
-            # Dereferencing a public key URL reveals information
-            # about the controller of the key,
-            # which can be checked against the issuer of the credential.
-            "verificationMethod": signing_key.verkey,
-            "jws": signature_hex,
-        }
+        try:
+            proof_dict = await create_proof(self.wallet, credential_dict)
+        except WalletError as err:
+            raise IssuerError(err.roll_up)
 
         credential_dict.update({"proof": proof_dict})
         self.log("Proof dictionary: %s", credential_dict)

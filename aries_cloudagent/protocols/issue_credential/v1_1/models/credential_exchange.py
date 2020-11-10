@@ -10,7 +10,7 @@ from .....messaging.valid import UUIDFour
 
 
 class CredentialExchangeRecord(BaseExchangeRecord):
-    """Represents an Aries#0036 credential exchange."""
+    """Represents an credential exchange."""
 
     class Meta:
         """CredentialExchange metadata."""
@@ -51,6 +51,13 @@ class CredentialExchangeRecord(BaseExchangeRecord):
         credential_exchange_id: str = None,
         **kwargs,
     ):
+        """
+        Init.
+
+        thread_id - for now assumption is that we want the same thread id
+        for entire exchange between agents, all messages in exchange should have same
+        id.
+        """
         super().__init__(credential_exchange_id, state, trace=trace, **kwargs)
         self._id = credential_exchange_id
         self.connection_id = connection_id
@@ -81,6 +88,20 @@ class CredentialExchangeRecord(BaseExchangeRecord):
                 "role",
                 "state",
                 "trace",
+            )
+        }
+
+    @property
+    def record_tags(self) -> dict:
+        """Used to define tags with which record can be found."""
+        return {
+            prop: getattr(self, prop)
+            for prop in (
+                "connection_id",
+                "thread_id",
+                "initiator",
+                "role",
+                "state",
             )
         }
 
