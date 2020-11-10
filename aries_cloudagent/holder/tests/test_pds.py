@@ -13,6 +13,38 @@ from aries_cloudagent.connections.models.connection_record import ConnectionReco
 from ...issuer.tests.test_pds import create_test_credential
 from aries_cloudagent.messaging.util import time_now
 
+#     {
+#         "name": string,
+#         "version": string,
+#         "nonce": string, - a big number represented as a string (use `generate_nonce` function to generate 80-bit number)
+#         "requested_attributes": { // set of requested attributes
+#              "<attr_referent>": <attr_info>, // see below
+#              ...,
+#         },
+#         "requested_predicates": { // set of requested predicates
+#              "<predicate_referent>": <predicate_info>, // see below
+#              ...,
+#          },
+#         "non_revoked": Optional<<non_revoc_interval>>, // see below,
+#                        // If specified prover must proof non-revocation
+#                        // for date in this interval for each attribute
+#                        // (applies to every attribute and predicate but can be overridden on attribute level)
+#                        // (can be overridden on attribute level)
+#     }
+# :param requested_credentials_json: either a credential or self-attested attribute for each requested attribute
+#     {
+#         "self_attested_attributes": {
+#             "self_attested_attribute_referent": string
+#         },
+#         "requested_attributes": {
+#             "requested_attribute_referent_1": {"cred_id": string, "timestamp": Optional<number>, revealed: <bool> }},
+#             "requested_attribute_referent_2": {"cred_id": string, "timestamp": Optional<number>, revealed: <bool> }}
+#         },
+#         "requested_predicates": {
+#             "requested_predicates_referent_1": {"cred_id": string, "timestamp": Optional<number> }},
+#         }
+#     }
+
 
 class TestPDSHolder(AsyncTestCase):
     async def setUp(self):
@@ -34,32 +66,21 @@ class TestPDSHolder(AsyncTestCase):
             ],
             "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
             "type": ["VerifiablePresentation", "CredentialManagerPresentation"],
-            "verifiableCredential": [{}],
-            "proof": [
-                {
-                    "type": "Ed25519Signature2018",
-                    "created": time_now(),
-                    # If the cryptographic suite expects a proofPurpose property,
-                    # it is expected to exist and be a valid value, such as assertionMethod.
-                    #
-                    "proofPurpose": "assertionMethod",
-                    # @TODO: verification method should point to something
-                    # that lets you verify the data, reference to signing entity
-                    # @
-                    # The verificationMethod property specifies,
-                    # for example, the public key that can be used
-                    # to verify the digital signature
-                    # @
-                    # Dereferencing a public key URL reveals information
-                    # about the controller of the key,
-                    # which can be checked against the issuer of the credential.
-                    "verificationMethod": "6DpqHrFQtsAjxw73sjUVWgEYHX8tgWoSeAZm3tx9FULy",
-                    "jws": "66ea5b361d4c479d06afd623e8d4a275cc501a3994400ecf41e8b347df19384e8acf8002684190aff7a289978dc26db7941819d0d99dad15ed3b22dbe7bd5f06",
-                }
-            ],
+            "nonce": "1234678",
+            "requested_attributes": {
+                "first_name": {"restrictions": [{"issuer_did": "1234"}]},
+            },
+        }
+
+        requested_credentials = {
+            "requested_attributes": {
+                "first_name": {"cred_id": "12345", "revealed": True},
+            },
+            # "requested_predicates": {}, TODO
+            # "self_attested_attributes": {}, TODO
         }
         presentation = await self.holder.create_presentation(
-            request_presentation, {}, {}, {}
+            request_presentation, requested_credentials, {}, {}
         )
         assert 1 == presentation
 

@@ -81,8 +81,8 @@ async def register(app: web.Application):
     app.add_routes(
         [
             web.post(
-                "/present-proof/records/{pres_ex_id}/send-presentation",
-                presentation_exchange_send_presentation,
+                "/present-proof/request",
+                presentation_exchange_request_presentation,
             ),
         ]
     )

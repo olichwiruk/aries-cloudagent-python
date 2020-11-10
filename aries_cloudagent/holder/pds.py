@@ -17,6 +17,25 @@ from aries_cloudagent.aathcf.credentials import (
 )
 
 
+def validate_schema(SchemaClass, schema: dict) -> dict:
+    """
+    Use Marshmallow Schema class to validate a schema in the form of dictionary
+    and also handle fields like @context
+
+    Returns:
+        Dictionary of errors
+    """
+    test_schema = schema
+    test_against = SchemaClass()
+    if test_schema.get("@context") != None and test_schema.get("context") == None:
+        test_schema = schema.copy()
+        test_schema["context"] = test_schema.get("@context")
+        test_schema.pop("@context", "skip errors")
+
+    errors = test_against.validate(test_schema)
+    return errors
+
+
 # TODO: Better error handling
 class PDSHolder(BaseHolder):
     """It requires context with bound storage!
@@ -98,48 +117,47 @@ class PDSHolder(BaseHolder):
             credential_definitions: Indy formatted credential definitions JSON
             rev_states: Indy format revocation states JSON
         """
-        if presentation_request.get("@context") != None:
-            presentation_request["context"] = presentation_request.get("@context")
-            presentation_request.pop("@context", "skip error")
 
-        self.log(
-            "Validation: ",
-        )
-        pres = PresentationSchema()
-        pres = pres.validate(presentation_request)
-        return pres
+        class RequestedAttributesSchema(Schema):
+            restrictions = fields.List(fields.Dict())
 
-    #     {
-    #         "name": string,
-    #         "version": string,
-    #         "nonce": string, - a big number represented as a string (use `generate_nonce` function to generate 80-bit number)
-    #         "requested_attributes": { // set of requested attributes
-    #              "<attr_referent>": <attr_info>, // see below
-    #              ...,
-    #         },
-    #         "requested_predicates": { // set of requested predicates
-    #              "<predicate_referent>": <predicate_info>, // see below
-    #              ...,
-    #          },
-    #         "non_revoked": Optional<<non_revoc_interval>>, // see below,
-    #                        // If specified prover must proof non-revocation
-    #                        // for date in this interval for each attribute
-    #                        // (applies to every attribute and predicate but can be overridden on attribute level)
-    #                        // (can be overridden on attribute level)
-    #     }
-    # :param requested_credentials_json: either a credential or self-attested attribute for each requested attribute
-    #     {
-    #         "self_attested_attributes": {
-    #             "self_attested_attribute_referent": string
-    #         },
-    #         "requested_attributes": {
-    #             "requested_attribute_referent_1": {"cred_id": string, "timestamp": Optional<number>, revealed: <bool> }},
-    #             "requested_attribute_referent_2": {"cred_id": string, "timestamp": Optional<number>, revealed: <bool> }}
-    #         },
-    #         "requested_predicates": {
-    #             "requested_predicates_referent_1": {"cred_id": string, "timestamp": Optional<number> }},
-    #         }
-    #     }
+        class PresentationRequestSchema(Schema):
+            id = fields.Str(required=False)
+            context = fields.List(fields.Str(required=True), required=True)
+            type = fields.List(fields.Str(required=True), required=True)
+            nonce = fields.Str(required=True)
+            # TODO When I add more of these attributes
+            # remember to change requiered to False
+            # preferably check if there is at least one attribute
+            # from available types
+            requested_attributes = fields.Dict(
+                keys=fields.Str(),
+                values=fields.Nested(RequestedAttributesSchema),
+                required=True,
+            )
+
+        class RequestedCredentialsSchema(Schema):
+            # TODO When I add more of these attributes
+            # remember to change requiered to False
+            # preferably check if there is at least one attribute
+            # from available types
+            requested_attributes = requested_attributes = fields.Dict(
+                keys=fields.Str(),
+                values=fields.Dict(),
+                required=True,
+                many=True,
+            )
+
+        errors1 = validate_schema(PresentationRequestSchema, presentation_request)
+        errors2 = validate_schema(RequestedCredentialsSchema, requested_credentials)
+        if errors1 != {} or errors2 != {}:
+            raise HolderError(
+                f"""Invalid Schema 
+                    presentation_request: {errors1} 
+                    requested_credentials: {errors2}"""
+            )
+
+    
 
     async def create_credential_request(
         self, credential_offer: dict, credential_definition: dict, holder_did: str
@@ -185,18 +203,7 @@ class PDSHolder(BaseHolder):
 
         """
         self.log("store_credential invoked credential_data %s", credential_data)
-
-        credential_copy = credential_data.copy()
-
-        if (
-            credential_copy.get("@context") != None
-            and credential_copy.get("context") == None
-        ):
-            credential_copy["context"] = credential_copy.get("@context")
-            credential_copy.pop("@context", "skip errors")
-
-        credential_schema = CredentialSchema()
-        errors = credential_schema.validate(credential_copy)
+        errors = validate_schema(CredentialSchema, credential_data)
         if errors != {}:
             raise HolderError(errors)
 

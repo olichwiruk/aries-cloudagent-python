@@ -9,6 +9,11 @@ import json
 
 
 async def retrieve_connection(context, connection_id):
+    """
+    Retrieve ConnectionRecord and handle exceptions.
+
+    Raises AioHTTP exceptions so only should be used in routes.py.
+    """
     try:
         connection_record: ConnectionRecord = await ConnectionRecord.retrieve_by_id(
             context, connection_id
@@ -26,6 +31,11 @@ async def retrieve_connection(context, connection_id):
 
 
 async def retrieve_credential_exchange(context, credential_exchange_id):
+    """
+    Retrieve Credential Exchange Record and handle exceptions.
+
+    Raises AioHTTP exceptions so only should be used in routes.py.
+    """
     try:
         exchange_record: CredentialExchangeRecord = (
             await CredentialExchangeRecord.retrieve_by_id(
@@ -47,6 +57,10 @@ async def create_credential(
     context, credential_request, connection_record, exception=web.HTTPError
 ) -> dict:
     """
+    Create Credential utility wrapper which handles exceptions
+
+    optionally you can pass
+
     Args:
         credential_request - dictionary containing "credential_values" and
         "credential_type"
