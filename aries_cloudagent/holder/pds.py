@@ -152,12 +152,51 @@ class PDSHolder(BaseHolder):
         errors2 = validate_schema(RequestedCredentialsSchema, requested_credentials)
         if errors1 != {} or errors2 != {}:
             raise HolderError(
-                f"""Invalid Schema 
+                f"""Invalid Schema!
                     presentation_request: {errors1} 
                     requested_credentials: {errors2}"""
             )
 
-    
+        requested = presentation_request.get("requested_attributes")
+        provided = requested_credentials.get("requested_attributes")
+
+        # Check for missing fields
+        # TODO: Should I be checking for missing fields?
+        # maybe its fine to not provide all info
+        # that probably should be handled in negotitation phase though?
+        missing_fields = False
+        for field in requested:
+            provided_attribute = provided.get(field)
+            if provided_attribute == None:
+                missing_fields = True
+                provided[field] = "Missing field"
+
+        if missing_fields == True:
+            raise HolderError("Some of the requested fields are missing!" + provided)
+
+        # Retrieve specified credentials
+        # TODO Add restrictions checking
+        # TODO Change to credential_id
+        credential_list = []
+        for field in requested:
+            provided_attribute = provided.get(field)
+            cred_id = provided_attribute.get("cred_id")
+            credential = await self.get_credential(cred_id)
+            credential_list.append(credential)
+
+        presentation_schema = {
+            "@context": [
+                "https://www.w3.org/2018/credentials/v1",
+                "https://www.w3.org/2018/credentials/examples/v1",
+            ],
+            # id of the person creating the credential?
+            "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+            "type": ["VerifiablePresentation", "CredentialManagerPresentation"],
+            "verifiableCredential": credential_list,
+            "proof": [{}],
+        }
+
+        return credential_list
 
     async def create_credential_request(
         self, credential_offer: dict, credential_definition: dict, holder_did: str

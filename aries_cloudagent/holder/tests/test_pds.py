@@ -59,7 +59,8 @@ class TestPDSHolder(AsyncTestCase):
         self.holder = PDSHolder(self.context)
 
     async def test_create_presentation(self):
-        request_presentation = {
+        cred_id = await self.holder.store_credential({}, self.credential, {})
+        presentation_request = {
             "@context": [
                 "https://www.w3.org/2018/credentials/v1",
                 "https://www.w3.org/2018/credentials/examples/v1",
@@ -74,13 +75,25 @@ class TestPDSHolder(AsyncTestCase):
 
         requested_credentials = {
             "requested_attributes": {
-                "first_name": {"cred_id": "12345", "revealed": True},
+                "first_name": {"cred_id": cred_id, "revealed": True},
             },
             # "requested_predicates": {}, TODO
             # "self_attested_attributes": {}, TODO
         }
+
+        presentation_example = {
+            "@context": [
+                "https://www.w3.org/2018/credentials/v1",
+                "https://www.w3.org/2018/credentials/examples/v1",
+            ],
+            "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+            "type": ["VerifiablePresentation", "CredentialManagerPresentation"],
+            "verifiableCredential": [{}],
+            "proof": [{}],
+        }
+
         presentation = await self.holder.create_presentation(
-            request_presentation, requested_credentials, {}, {}
+            presentation_request, requested_credentials, {}, {}
         )
         assert 1 == presentation
 

@@ -61,6 +61,7 @@ async def create_test_credential(issuer):
                 "dri": "1234",
                 "dataDri": "1234",
             },
+            "first_name": "Karol",
         },
     }
 
