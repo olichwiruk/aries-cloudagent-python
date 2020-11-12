@@ -1,7 +1,9 @@
-from aries_cloudagent.wallet.util import bytes_to_b64
+from aries_cloudagent.wallet.util import bytes_to_b64, str_to_b64
 from aries_cloudagent.messaging.util import time_now
 from aries_cloudagent.messaging.valid import IndyISO8601DateTime
 from marshmallow import fields, INCLUDE, Schema
+
+import json
 
 
 def dictionary_to_base64(dictionary):
@@ -128,6 +130,10 @@ class PresentationRequestSchema(Schema):
 
 
 class RequestedCredentialsSchema(Schema):
+    """
+    Schema which is used to provide credential_ids for credential_request
+    """
+
     # TODO When I add more of these attributes
     # remember to change requiered to False
     # preferably check if there is at least one attribute
@@ -146,3 +152,61 @@ class PresentationSchema(Schema):
     type = fields.List(fields.Str(), required=True)
     verifiableCredential = fields.List(fields.Nested(CredentialSchema), required=True)
     proof = fields.Dict()
+
+
+## TODO:
+async def create_proof_jwt(wallet, credential):
+    def dictionary_to_base64_jwt(dictionary) -> bytes:
+        dictionary_str = json.dumps(dictionary)
+        dictionary_base64 = str_to_b64(dictionary_str, urlsafe=True).encode("utf-8")
+
+        return dictionary_base64
+
+    """
+    JWT:
+    https://tools.ietf.org/html/rfc7519
+    JWS:
+    https://tools.ietf.org/html/rfc7515
+    """
+    signing_key: KeyInfo = await wallet.create_signing_key()
+    header = {"alg": "EdDSA", "typ": "JWT"}
+    payload_fields = {
+        "iss": "",  # issuer
+        "aud": "",  # audience
+        "sub": "",  # subject
+        "iat": time_now(),  # Issued At epoch
+        "exp": time_now(),  # expiration epoch
+    }
+    payload_fields.update(credential)
+
+    test_2 = {"iss": "joe", "exp": 1300819380, "http://example.com/is_root": True}
+    test = {"typ": "JWT", "alg": "HS256"}
+    test_abc = dictionary_to_base64_jwt(test_2)
+    return test_abc
+
+    """
+        * The "iss" value is a case-sensitive string containing a StringOrURI
+        value.  Use of this claim is OPTIONAL
+        * sub - who jwt is about, subject
+        * aud - audience, receiver of jwt 
+        * The "nbf" (not before) claim identifies the time before which the JWT
+        MUST NOT be accepted for processing.
+        * The "jti" (JWT ID) claim provides a unique identifier for the JWT.
+        The identifier value MUST be assigned in a manner that ensures that
+        there is a negligible probability that the same value will be
+        accidentally assigned to a different data object
+    """
+
+    header_base64: bytes = dictionary_to_base64_jwt(header)
+    payload_base64: bytes = dictionary_to_base64_jwt(payload_fields)
+    header_payload = (
+        header_base64.decode("utf-8") + "." + payload_base64.decode("utf-8")
+    )
+    header_payload_base64 = str_to_b64(header_payload).encode("utf-8")
+
+    signature_bytes: bytes = await wallet.sign_message(
+        header_payload_base64, signing_key.verkey
+    )
+    signature_str = signature_bytes.decode("utf-8")
+    header_payload_signature = header_payload + "." + signature_str
+    return header_payload_signature
