@@ -1,4 +1,5 @@
 import logging
+import uuid
 from marshmallow import Schema
 from marshmallow.utils import INCLUDE
 from typing import Tuple, Union
@@ -13,17 +14,21 @@ from ..messaging.valid import UUIDFour, IndyISO8601DateTime, JSONWebToken
 from aries_cloudagent.aathcf.credentials import (
     CredentialSchema,
     PresentationSchema,
+    RequestedAttributesSchema,
+    PresentationRequestSchema,
+    RequestedCredentialsSchema,
+    PresentationSchema,
     verify_proof,
+    create_proof,
 )
 
 
-def validate_schema(SchemaClass, schema: dict) -> dict:
+def validate_schema(SchemaClass, schema: dict, exception):
     """
     Use Marshmallow Schema class to validate a schema in the form of dictionary
     and also handle fields like @context
 
-    Returns:
-        Dictionary of errors
+    Throws passed in exception
     """
     test_schema = schema
     test_against = SchemaClass()
@@ -33,7 +38,11 @@ def validate_schema(SchemaClass, schema: dict) -> dict:
         test_schema.pop("@context", "skip errors")
 
     errors = test_against.validate(test_schema)
-    return errors
+    if errors != {}:
+        raise exception(
+            f"""Invalid Schema!
+                Schema of errors: {errors}"""
+        )
 
 
 # TODO: Better error handling
@@ -118,44 +127,8 @@ class PDSHolder(BaseHolder):
             rev_states: Indy format revocation states JSON
         """
 
-        class RequestedAttributesSchema(Schema):
-            restrictions = fields.List(fields.Dict())
-
-        class PresentationRequestSchema(Schema):
-            id = fields.Str(required=False)
-            context = fields.List(fields.Str(required=True), required=True)
-            type = fields.List(fields.Str(required=True), required=True)
-            nonce = fields.Str(required=True)
-            # TODO When I add more of these attributes
-            # remember to change requiered to False
-            # preferably check if there is at least one attribute
-            # from available types
-            requested_attributes = fields.Dict(
-                keys=fields.Str(),
-                values=fields.Nested(RequestedAttributesSchema),
-                required=True,
-            )
-
-        class RequestedCredentialsSchema(Schema):
-            # TODO When I add more of these attributes
-            # remember to change requiered to False
-            # preferably check if there is at least one attribute
-            # from available types
-            requested_attributes = requested_attributes = fields.Dict(
-                keys=fields.Str(),
-                values=fields.Dict(),
-                required=True,
-                many=True,
-            )
-
-        errors1 = validate_schema(PresentationRequestSchema, presentation_request)
-        errors2 = validate_schema(RequestedCredentialsSchema, requested_credentials)
-        if errors1 != {} or errors2 != {}:
-            raise HolderError(
-                f"""Invalid Schema!
-                    presentation_request: {errors1} 
-                    requested_credentials: {errors2}"""
-            )
+        validate_schema(PresentationRequestSchema, presentation_request, HolderError)
+        validate_schema(RequestedCredentialsSchema, requested_credentials, HolderError)
 
         requested = presentation_request.get("requested_attributes")
         provided = requested_credentials.get("requested_attributes")
@@ -184,19 +157,32 @@ class PDSHolder(BaseHolder):
             credential = await self.get_credential(cred_id)
             credential_list.append(credential)
 
-        presentation_schema = {
-            "@context": [
-                "https://www.w3.org/2018/credentials/v1",
-                "https://www.w3.org/2018/credentials/examples/v1",
-            ],
-            # id of the person creating the credential?
-            "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
-            "type": ["VerifiablePresentation", "CredentialManagerPresentation"],
+        # Create type list
+        request_type = ["VerifiablePresentation"]
+        for i in presentation_request.get("type"):
+            request_type.append(i)
+
+        remove_duplicates = set(request_type)
+        request_type = list(remove_duplicates)
+
+        presentation = {
+            "@context": presentation_request.get(
+                "@context", presentation_request.get("context")
+            ),
+            # id of the person creating the presentation?
+            # I think this should be id of presentation
+            "id": uuid.uuid4().urn,
+            "type": request_type,
             "verifiableCredential": credential_list,
-            "proof": [{}],
         }
 
-        return credential_list
+        wallet = await self.context.inject(BaseWallet)
+        proof = await create_proof(wallet, presentation)
+        presentation.update({"proof": proof})
+
+        validate_schema(PresentationRequestSchema, presentation_request, HolderError)
+
+        return presentation
 
     async def create_credential_request(
         self, credential_offer: dict, credential_definition: dict, holder_did: str
@@ -242,9 +228,7 @@ class PDSHolder(BaseHolder):
 
         """
         self.log("store_credential invoked credential_data %s", credential_data)
-        errors = validate_schema(CredentialSchema, credential_data)
-        if errors != {}:
-            raise HolderError(errors)
+        errors = validate_schema(CredentialSchema, credential_data, HolderError)
 
         wallet = await self.context.inject(BaseWallet)
         isVerified = await verify_proof(wallet, credential_data)

@@ -50,12 +50,12 @@ class TestPDSHolder(AsyncTestCase):
     async def setUp(self):
         self.context: InjectionContext = InjectionContext()
         storage = BasicStorage()
-        wallet = BasicWallet()
-        issuer = PDSIssuer(wallet)
+        self.wallet = BasicWallet()
+        issuer = PDSIssuer(self.wallet)
         self.credential = await create_test_credential(issuer)
 
         self.context.injector.bind_instance(BaseStorage, storage)
-        self.context.injector.bind_instance(BaseWallet, wallet)
+        self.context.injector.bind_instance(BaseWallet, self.wallet)
         self.holder = PDSHolder(self.context)
 
     async def test_create_presentation(self):
@@ -65,7 +65,6 @@ class TestPDSHolder(AsyncTestCase):
                 "https://www.w3.org/2018/credentials/v1",
                 "https://www.w3.org/2018/credentials/examples/v1",
             ],
-            "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
             "type": ["VerifiablePresentation", "CredentialManagerPresentation"],
             "nonce": "1234678",
             "requested_attributes": {
@@ -86,16 +85,19 @@ class TestPDSHolder(AsyncTestCase):
                 "https://www.w3.org/2018/credentials/v1",
                 "https://www.w3.org/2018/credentials/examples/v1",
             ],
-            "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
-            "type": ["VerifiablePresentation", "CredentialManagerPresentation"],
+            "type": ["VerifiablePresentation"],
             "verifiableCredential": [{}],
-            "proof": [{}],
+            "proof": {},
         }
 
         presentation = await self.holder.create_presentation(
             presentation_request, requested_credentials, {}, {}
         )
-        assert 1 == presentation
+        assert await verify_proof(self.wallet, presentation) == True
+        assert isinstance(presentation["id"], str)
+        assert presentation["id"].startswith("urn:uuid:")
+        assert presentation["@context"] == presentation_example["@context"]
+        assert "VerifiablePresentation" in presentation["type"]
 
     async def test_store_credential_retrieve_and_delete(self):
         cred_id = await self.holder.store_credential({}, self.credential, {})

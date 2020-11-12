@@ -13,6 +13,9 @@ def dictionary_to_base64(dictionary):
 
 
 async def verify_proof(wallet, credential: dict) -> bool:
+    """
+    Args: Credential: full schema with proof field
+    """
     proof = credential["proof"]
     if proof["type"] != "Ed25519Signature2018":
         print("This proof type is not implemented, ", proof["type"])
@@ -103,3 +106,43 @@ class CredentialSchema(Schema):
     )
     proof = fields.Nested(ProofSchema(), required=True)
     issuanceDate = fields.Str(required=True)
+
+
+class RequestedAttributesSchema(Schema):
+    restrictions = fields.List(fields.Dict())
+
+
+class PresentationRequestSchema(Schema):
+    context = fields.List(fields.Str(required=True), required=True)
+    type = fields.List(fields.Str(required=True), required=True)
+    nonce = fields.Str(required=True)
+    # TODO When I add more of these attributes
+    # remember to change requiered to False
+    # preferably check if there is at least one attribute
+    # from available types
+    requested_attributes = fields.Dict(
+        keys=fields.Str(),
+        values=fields.Nested(RequestedAttributesSchema),
+        required=True,
+    )
+
+
+class RequestedCredentialsSchema(Schema):
+    # TODO When I add more of these attributes
+    # remember to change requiered to False
+    # preferably check if there is at least one attribute
+    # from available types
+    requested_attributes = requested_attributes = fields.Dict(
+        keys=fields.Str(),
+        values=fields.Dict(),
+        required=True,
+        many=True,
+    )
+
+
+class PresentationSchema(Schema):
+    context = fields.List(fields.Str(), required=True)
+    id = fields.Str(required=True)
+    type = fields.List(fields.Str(), required=True)
+    verifiableCredential = fields.List(fields.Nested(CredentialSchema), required=True)
+    proof = fields.Dict()
