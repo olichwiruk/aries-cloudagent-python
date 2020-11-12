@@ -74,6 +74,7 @@ async def create_test_credential(issuer):
     )
     credential_dict = json.loads(credential)
 
+    assert credential_dict.get("proof") != None
     assert credential_dict["credentialSubject"] == test_cred["credentialSubject"]
 
     return credential_dict

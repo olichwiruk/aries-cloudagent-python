@@ -33,18 +33,18 @@ from ...problem_report.v1_0 import internal_error
 from aries_cloudagent.protocols.issue_credential.v1_1.utils import retrieve_connection
 
 
-class RequestedValueSchema(OpenAPISchema):
+class RequestedValueAPISchema(OpenAPISchema):
     value = fields.Str(required=True)
     issuer = fields.Str(required=False)
 
 
-class PresentationRequestSchema(OpenAPISchema):
-    requested_values = fields.Nested(RequestedValueSchema(), required=True)
+class PresentationRequestAPISchema(OpenAPISchema):
+    requested_values = fields.Nested(RequestedValueAPISchema(), required=True)
     connection_id = fields.Str(required=True)
 
 
 @docs(tags=["present-proof"], summary="Sends a proof presentation")
-@request_schema(PresentationRequestSchema())
+@request_schema(PresentationRequestAPISchema())
 async def presentation_exchange_request_presentation(request: web.BaseRequest):
     """
     Request handler for sending a presentation.

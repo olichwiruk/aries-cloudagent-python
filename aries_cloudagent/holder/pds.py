@@ -21,6 +21,7 @@ from aries_cloudagent.aathcf.credentials import (
     verify_proof,
     create_proof,
 )
+import json
 
 
 def validate_schema(SchemaClass, schema: dict, exception):
@@ -39,10 +40,7 @@ def validate_schema(SchemaClass, schema: dict, exception):
 
     errors = test_against.validate(test_schema)
     if errors != {}:
-        raise exception(
-            f"""Invalid Schema!
-                Schema of errors: {errors}"""
-        )
+        raise exception(f"""Invalid Schema! errors: {errors}""")
 
 
 # TODO: Better error handling
@@ -72,7 +70,11 @@ class PDSHolder(BaseHolder):
         except StorageError as err:
             raise HolderError(err.roll_up)
 
-        return credential.serialize(as_string=True)
+        result = credential.serialize()
+        result.pop("created_at")
+        result.pop("updated_at")
+
+        return json.dumps(result)
 
     async def delete_credential(self, credential_id: str):
         """
@@ -155,6 +157,7 @@ class PDSHolder(BaseHolder):
             provided_attribute = provided.get(field)
             cred_id = provided_attribute.get("cred_id")
             credential = await self.get_credential(cred_id)
+            credential = json.loads(credential)
             credential_list.append(credential)
 
         # Create type list
@@ -180,7 +183,7 @@ class PDSHolder(BaseHolder):
         proof = await create_proof(wallet, presentation)
         presentation.update({"proof": proof})
 
-        validate_schema(PresentationRequestSchema, presentation_request, HolderError)
+        validate_schema(PresentationSchema, presentation, HolderError)
 
         return presentation
 
@@ -235,6 +238,7 @@ class PDSHolder(BaseHolder):
         if isVerified == False:
             raise HolderError("Proof is incorrect, could not verify")
 
+        assert credential_data.get("proof") != None
         credential = THCFCredential(
             issuanceDate=credential_data.get("issuanceDate"),
             credentialSubject=credential_data.get("credentialSubject"),

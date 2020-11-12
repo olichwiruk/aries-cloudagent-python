@@ -18,14 +18,15 @@ async def verify_proof(wallet, credential: dict) -> bool:
     """
     Args: Credential: full schema with proof field
     """
-    proof = credential["proof"]
+    cred_copy = credential.copy()
+    proof = cred_copy["proof"]
     if proof["type"] != "Ed25519Signature2018":
         print("This proof type is not implemented, ", proof["type"])
         result = False
 
-    del credential["proof"]
+    del cred_copy["proof"]
     proof_signature = bytes.fromhex(proof["jws"])
-    credential_base64 = dictionary_to_base64(credential)
+    credential_base64 = dictionary_to_base64(cred_copy)
 
     result = await wallet.verify_message(
         credential_base64, proof_signature, proof["verificationMethod"]
@@ -138,7 +139,7 @@ class RequestedCredentialsSchema(Schema):
     # remember to change requiered to False
     # preferably check if there is at least one attribute
     # from available types
-    requested_attributes = requested_attributes = fields.Dict(
+    requested_attributes = fields.Dict(
         keys=fields.Str(),
         values=fields.Dict(),
         required=True,
@@ -152,6 +153,8 @@ class PresentationSchema(Schema):
     type = fields.List(fields.Str(), required=True)
     verifiableCredential = fields.List(fields.Nested(CredentialSchema), required=True)
     proof = fields.Dict()
+    created_at = fields.Date(required=False)
+    updated_at = fields.Date(required=False)
 
 
 ## TODO:
