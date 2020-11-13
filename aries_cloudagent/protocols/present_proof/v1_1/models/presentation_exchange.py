@@ -6,6 +6,7 @@ from marshmallow import fields, validate
 
 from .....messaging.models.base_record import BaseExchangeRecord, BaseExchangeSchema
 from .....messaging.valid import UUIDFour
+from aries_cloudagent.aathcf.credentials import PresentationRequestSchema
 
 
 class THCFPresentationExchange(BaseExchangeRecord):
@@ -16,7 +17,7 @@ class THCFPresentationExchange(BaseExchangeRecord):
 
         schema_class = "THCFPresentationExchangeSchema"
 
-    RECORD_TYPE = "presentation_exchange_v10"
+    RECORD_TYPE = "presentation_exchange_thcf"
     RECORD_ID_NAME = "presentation_exchange_id"
     WEBHOOK_TOPIC = "present_proof"
     TAG_NAMES = {"thread_id"}
@@ -29,7 +30,7 @@ class THCFPresentationExchange(BaseExchangeRecord):
 
     STATE_PROPOSAL_SENT = "proposal_sent"
     STATE_PROPOSAL_RECEIVED = "proposal_received"
-    STATE_REQUEST_SENT = "reqwuest_sent"
+    STATE_REQUEST_SENT = "request_sent"
     STATE_REQUEST_RECEIVED = "request_received"
     STATE_PRESENTATION_SENT = "presentation_sent"
     STATE_PRESENTATION_RECEIVED = "presentation_received"
@@ -45,10 +46,9 @@ class THCFPresentationExchange(BaseExchangeRecord):
         initiator: str = None,
         role: str = None,
         state: str = None,
-        presentation_proposal_dict: dict = None,  # serialized pres proposal message
-        presentation_request: dict = None,  # indy proof req
-        presentation_request_dict: dict = None,  # serialized pres request message
-        presentation: dict = None,  # indy proof
+        presentation_proposal: dict = None,
+        presentation_request: dict = None,
+        presentation: dict = None,
         verified: str = None,
         auto_present: bool = False,
         error_msg: str = None,
@@ -62,10 +62,9 @@ class THCFPresentationExchange(BaseExchangeRecord):
         self.initiator = initiator
         self.role = role
         self.state = state
-        self.presentation_proposal_dict = presentation_proposal_dict
-        self.presentation_request = presentation_request  # indy proof req
-        self.presentation_request_dict = presentation_request_dict
-        self.presentation = presentation  # indy proof
+        self.presentation_proposal = presentation_proposal
+        self.presentation_request = presentation_request
+        self.presentation = presentation
         self.verified = verified
         self.auto_present = auto_present
         self.error_msg = error_msg
@@ -84,9 +83,8 @@ class THCFPresentationExchange(BaseExchangeRecord):
             for prop in (
                 "connection_id",
                 "initiator",
-                "presentation_proposal_dict",
+                "presentation_proposal",
                 "presentation_request",
-                "presentation_request_dict",
                 "presentation",
                 "role",
                 "state",
@@ -142,18 +140,16 @@ class THCFPresentationExchangeSchema(BaseExchangeSchema):
         description="Present-proof exchange state",
         example=THCFPresentationExchange.STATE_VERIFIED,
     )
-    presentation_proposal_dict = fields.Dict(
+    presentation_proposal = fields.Dict(
         required=False, description="Serialized presentation proposal message"
     )
-    presentation_request = fields.Dict(
+    presentation_request = fields.Nested(
+        PresentationRequestSchema,
         required=False,
-        description="(Indy) presentation request (also known as proof request)",
-    )
-    presentation_request_dict = fields.Dict(
-        required=False, description="Serialized presentation request message"
+        description="presentation request (also known as proof request)",
     )
     presentation = fields.Dict(
-        required=False, description="(Indy) presentation (also known as proof)"
+        required=False, description="presentation (also known as proof)"
     )
     verified = fields.Str(  # tag: must be a string
         required=False,

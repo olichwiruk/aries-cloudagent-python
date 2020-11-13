@@ -166,5 +166,18 @@ class CredentialExchangeSchema(BaseExchangeSchema):
         required=False,
         description="Issue-credential exchange state",
         example=CredentialExchangeRecord.STATE_ACKED,
+        validate=validate.OneOf(
+            [
+                CredentialExchangeRecord.STATE_PROPOSAL_SENT,
+                CredentialExchangeRecord.STATE_PROPOSAL_RECEIVED,
+                CredentialExchangeRecord.STATE_OFFER_SENT,
+                CredentialExchangeRecord.STATE_OFFER_RECEIVED,
+                CredentialExchangeRecord.STATE_REQUEST_SENT,
+                CredentialExchangeRecord.STATE_REQUEST_RECEIVED,
+                CredentialExchangeRecord.STATE_ISSUED,
+                CredentialExchangeRecord.STATE_CREDENTIAL_RECEIVED,
+                CredentialExchangeRecord.STATE_ACKED,
+            ]
+        ),
     )
     credential_request = fields.Dict(required=False, description="")

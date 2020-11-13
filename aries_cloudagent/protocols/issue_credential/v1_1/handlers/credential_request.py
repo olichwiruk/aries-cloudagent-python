@@ -26,10 +26,7 @@ class CredentialRequestHandler(BaseHandler):
         debug_handler(self._logger.debug, context, CredentialRequest)
         message: CredentialRequest = context.message
         credential = context.message.credential
-        credential_type = credential.get("credential_type")
-        credential_values = credential.get("credential_values")
 
-        assert message._thread_id != None
         exchange_record: CredentialExchangeRecord = CredentialExchangeRecord(
             connection_id=responder.connection_id,
             initiator=CredentialExchangeRecord.INITIATOR_EXTERNAL,
@@ -39,13 +36,9 @@ class CredentialRequestHandler(BaseHandler):
             credential_request=credential,
         )
 
-        credential_exchange_id: CredentialExchangeRecord = await exchange_record.save(
-            context, reason="RequestCredential ExchangeRecord saved"
-        )
-
-        self._logger.info("Credential exchange ID %s", credential_exchange_id)
+        credential_exchange_id = await exchange_record.save(context)
         await responder.send_webhook(
-            "TODOInfo_credential_request_received",
+            CredentialExchangeRecord.webhook_topic,
             {
                 "credential_exchange_id": credential_exchange_id,
                 "connection_id": responder.connection_id,
