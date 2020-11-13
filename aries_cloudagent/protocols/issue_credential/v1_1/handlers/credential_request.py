@@ -23,9 +23,7 @@ class CredentialRequestHandler(BaseHandler):
     """
 
     async def handle(self, context: RequestContext, responder: BaseResponder):
-        debug_handler(
-            self._logger.debug, context, CredentialRequest, "CredentialRequestHandler"
-        )
+        debug_handler(self._logger.debug, context, CredentialRequest)
         message: CredentialRequest = context.message
         credential = context.message.credential
         credential_type = credential.get("credential_type")

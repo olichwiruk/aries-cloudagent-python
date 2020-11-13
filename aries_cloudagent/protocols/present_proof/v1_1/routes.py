@@ -31,15 +31,19 @@ from ....utils.tracing import trace_event, get_timer, AdminAPIMessageTracingSche
 from ....wallet.error import WalletNotFoundError
 from ...problem_report.v1_0 import internal_error
 from aries_cloudagent.protocols.issue_credential.v1_1.utils import retrieve_connection
-
-
-class RequestedValueAPISchema(OpenAPISchema):
-    value = fields.Str(required=True)
-    issuer = fields.Str(required=False)
+from aries_cloudagent.aathcf.credentials import RequestedAttributesSchema
+from .messages.request_proof import RequestProof
 
 
 class PresentationRequestAPISchema(OpenAPISchema):
-    requested_values = fields.Nested(RequestedValueAPISchema(), required=True)
+    requested_attributes = fields.Dict(
+        keys=fields.Str(),
+        values=fields.Nested(RequestedAttributesSchema),
+        required=True,
+        many=True,
+    )
+    context = fields.List(fields.Str(required=True), required=True)
+    type = fields.List(fields.Str(required=True), required=True)
     connection_id = fields.Str(required=True)
 
 
@@ -58,21 +62,22 @@ async def presentation_exchange_request_presentation(request: web.BaseRequest):
     """
     context = request.app["request_context"]
     outbound_handler = request.app["outbound_message_router"]
-    presentation_exchange_id = request.match_info["pres_ex_id"]
-
     body = await request.json()
-    connection_id = body.get("connection_id")
-    requested_values = body.get("requested_values")
 
+    connection_id = body.get("connection_id")
     connection_record = await retrieve_connection(context, connection_id)
 
-    # "self_attested_attributes": body.get("self_attested_attributes"),
-    # "requested_attributes": body.get("requested_attributes"),
-    # "requested_predicates": body.get("requested_predicates"),
+    type = body.get("type")
+    context_field = body.get("context")
+    requested_attributes = body.get("requested_attributes")
 
-    # await outbound_handler(presentation_message, connection_id=connection_id)
+    message = RequestProof(
+        requested_attributes=requested_attributes, context=context_field, type=type
+    )
 
-    return web.json_response(requested_values)
+    await outbound_handler(message, connection_id=connection_id)
+
+    return web.json_response(requested_attributes)
 
 
 async def register(app: web.Application):

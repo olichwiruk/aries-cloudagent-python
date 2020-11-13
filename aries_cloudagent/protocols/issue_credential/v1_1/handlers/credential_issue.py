@@ -20,9 +20,7 @@ class CredentialIssueHandler(BaseHandler):
     """
 
     async def handle(self, context: RequestContext, responder: BaseResponder):
-        debug_handler(
-            self._logger.debug, context, CredentialIssue, "CredentialIssueHandler"
-        )
+        debug_handler(self._logger.debug, context, CredentialIssue)
 
         try:
             exchange_record: CredentialExchangeRecord = (

@@ -127,6 +127,7 @@ class PresentationRequestSchema(Schema):
         keys=fields.Str(),
         values=fields.Nested(RequestedAttributesSchema),
         required=True,
+        many=True,
     )
 
 
