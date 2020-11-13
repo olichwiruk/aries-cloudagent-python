@@ -6,6 +6,7 @@ from marshmallow import fields
 
 from .....messaging.agent_message import AgentMessage, AgentMessageSchema
 from ..message_types import CREDENTIAL_ISSUE, PROTOCOL_PACKAGE
+from aries_cloudagent.aathcf.credentials import CredentialSchema
 
 HANDLER_CLASS = f"{PROTOCOL_PACKAGE}.handlers.credential_issue.CredentialIssueHandler"
 
@@ -27,7 +28,6 @@ class CredentialIssue(AgentMessage):
         Initialize credential issue object.
         """
         super().__init__(_id=_id, **kwargs)
-        # TODO; Schema
         self.credential = credential
 
 
@@ -39,4 +39,4 @@ class CredentialIssueSchema(AgentMessageSchema):
 
         model_class = CredentialIssue
 
-    credential = fields.Dict()
+    credential = fields.Nested(CredentialSchema, required=True)

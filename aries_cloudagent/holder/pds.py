@@ -14,9 +14,9 @@ from ..messaging.valid import UUIDFour, IndyISO8601DateTime, JSONWebToken
 from aries_cloudagent.aathcf.credentials import (
     CredentialSchema,
     PresentationSchema,
-    RequestedAttributesSchema,
+    PresentationRequestedAttributesSchema,
     PresentationRequestSchema,
-    RequestedCredentialsSchema,
+    PresentationRequestedCredentialsSchema,
     PresentationSchema,
     verify_proof,
     create_proof,
@@ -67,6 +67,8 @@ class PDSHolder(BaseHolder):
             credential: THCFCredential = await THCFCredential.retrieve_by_id(
                 self.context, credential_id
             )
+        except StorageNotFoundError as err:
+            raise HolderError(f"Credential of {credential_id} not found")
         except StorageError as err:
             raise HolderError(err.roll_up)
 
@@ -130,7 +132,9 @@ class PDSHolder(BaseHolder):
         """
 
         validate_schema(PresentationRequestSchema, presentation_request, HolderError)
-        validate_schema(RequestedCredentialsSchema, requested_credentials, HolderError)
+        validate_schema(
+            PresentationRequestedCredentialsSchema, requested_credentials, HolderError
+        )
 
         requested = presentation_request.get("requested_attributes")
         provided = requested_credentials.get("requested_attributes")
@@ -156,7 +160,12 @@ class PDSHolder(BaseHolder):
         for field in requested:
             provided_attribute = provided.get(field)
             cred_id = provided_attribute.get("cred_id")
-            credential = await self.get_credential(cred_id)
+            try:
+                credential = await self.get_credential(cred_id)
+            except HolderError as err:
+                raise HolderError(
+                    f"credential_id {cred_id} for field {field} is invalid"
+                )
             credential = json.loads(credential)
             credential_list.append(credential)
 

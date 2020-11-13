@@ -4,7 +4,7 @@ from .....messaging.agent_message import AgentMessage, AgentMessageSchema
 from ..message_types import REQUEST_PROOF, PROTOCOL_PACKAGE
 from aries_cloudagent.aathcf.credentials import (
     PresentationRequestSchema,
-    RequestedAttributesSchema,
+    PresentationRequestedAttributesSchema,
 )
 import uuid
 

@@ -111,7 +111,13 @@ class CredentialSchema(Schema):
     issuanceDate = fields.Str(required=True)
 
 
-class RequestedAttributesSchema(Schema):
+# TODO
+class CredentialRequestSchema(Schema):
+    context = fields.List(fields.Str(required=True), required=True)
+    type = fields.List(fields.Str(required=True), required=True)
+
+
+class PresentationRequestedAttributesSchema(Schema):
     restrictions = fields.List(fields.Dict())
 
 
@@ -125,15 +131,16 @@ class PresentationRequestSchema(Schema):
     # from available types
     requested_attributes = fields.Dict(
         keys=fields.Str(),
-        values=fields.Nested(RequestedAttributesSchema),
+        values=fields.Nested(PresentationRequestedAttributesSchema),
         required=True,
         many=True,
     )
 
 
-class RequestedCredentialsSchema(Schema):
+class PresentationRequestedCredentialsSchema(Schema):
     """
     Schema which is used to provide credential_ids for credential_request
+    by the user
     """
 
     # TODO When I add more of these attributes
@@ -153,8 +160,8 @@ class PresentationSchema(Schema):
     id = fields.Str(required=True)
     type = fields.List(fields.Str(), required=True)
     verifiableCredential = fields.List(fields.Nested(CredentialSchema), required=True)
-    proof = fields.Dict()
-    created_at = fields.Date(required=False)
+    proof = fields.Nested(ProofSchema, required=True)
+    created_at = fields.Date(required=False)  # TODO I dont want these here I think
     updated_at = fields.Date(required=False)
 
 
