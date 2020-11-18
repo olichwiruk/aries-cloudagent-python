@@ -22,6 +22,7 @@ from aries_cloudagent.aathcf.credentials import (
     create_proof,
 )
 import json
+from collections import OrderedDict
 
 
 def validate_schema(SchemaClass, schema: dict, exception):
@@ -29,10 +30,14 @@ def validate_schema(SchemaClass, schema: dict, exception):
     Use Marshmallow Schema class to validate a schema in the form of dictionary
     and also handle fields like @context
 
+    Returns errors if no exception passed
+    or
     Throws passed in exception
     """
     test_schema = schema
     test_against = SchemaClass()
+    # if isinstance(test_schema, OrderedDict):
+    #     test_schema = dict(test_schema)
     if test_schema.get("@context") != None and test_schema.get("context") == None:
         test_schema = schema.copy()
         test_schema["context"] = test_schema.get("@context")
@@ -40,7 +45,16 @@ def validate_schema(SchemaClass, schema: dict, exception):
 
     errors = test_against.validate(test_schema)
     if errors != {}:
-        raise exception(f"""Invalid Schema! errors: {errors}""")
+        logging.getLogger(__name__).error(
+            f"""Invalid Schema! errors: {errors} 
+            schema: {test_schema}
+            SchemaClass: {SchemaClass}"""
+        )
+
+        if exception:
+            raise exception(f"""Invalid Schema! errors: {errors}""")
+        else:
+            return errors
 
 
 # TODO: Better error handling
@@ -50,7 +64,7 @@ class PDSHolder(BaseHolder):
     records into storage so that only storage would be requiered?"""
 
     def __init__(self, context):
-        self.log = logging.getLogger(__name__).info
+        self.log = logging.getLogger(__name__).debug
         self.context: InjectionContext = context
 
     async def get_credential(self, credential_id: str) -> str:
@@ -61,7 +75,6 @@ class PDSHolder(BaseHolder):
             credential_id: Credential id to retrieve
 
         """
-        self.log("get_credential invoked")
 
         try:
             credential: THCFCredential = await THCFCredential.retrieve_by_id(
@@ -73,6 +86,7 @@ class PDSHolder(BaseHolder):
             raise HolderError(err.roll_up)
 
         result = credential.serialize()
+        self.log("get_credential credential %s \nserialized: %s", credential, result)
         result.pop("created_at")
         result.pop("updated_at")
 
@@ -86,8 +100,6 @@ class PDSHolder(BaseHolder):
             credential_id: Credential id to remove
 
         """
-        self.log("delete_credential invoked")
-
         try:
             credential: THCFCredential = await THCFCredential.retrieve_by_id(
                 self.context, credential_id
@@ -166,6 +178,7 @@ class PDSHolder(BaseHolder):
                 raise HolderError(
                     f"credential_id {cred_id} for field {field} is invalid"
                 )
+            self.log("CREDENTIAL_LIST ITEM %s", credential)
             credential = json.loads(credential)
             credential_list.append(credential)
 
@@ -177,24 +190,21 @@ class PDSHolder(BaseHolder):
         remove_duplicates = set(request_type)
         request_type = list(remove_duplicates)
 
-        presentation = {
-            "@context": presentation_request.get(
-                "@context", presentation_request.get("context")
-            ),
-            # id of the person creating the presentation?
-            # I think this should be id of presentation
-            "id": uuid.uuid4().urn,
-            "type": request_type,
-            "verifiableCredential": credential_list,
-        }
+        presentation = OrderedDict()
+        presentation["context"] = presentation_request.get(
+            "@context", presentation_request.get("context")
+        )
+        presentation["id"] = uuid.uuid4().urn
+        presentation["type"] = request_type
+        presentation["verifiableCredential"] = credential_list
 
         wallet = await self.context.inject(BaseWallet)
-        proof = await create_proof(wallet, presentation)
+        proof = await create_proof(wallet, presentation, HolderError)
         presentation.update({"proof": proof})
 
         validate_schema(PresentationSchema, presentation, HolderError)
 
-        return presentation
+        return json.dumps(presentation)
 
     async def create_credential_request(
         self, credential_offer: dict, credential_definition: dict, holder_did: str
@@ -243,19 +253,21 @@ class PDSHolder(BaseHolder):
         errors = validate_schema(CredentialSchema, credential_data, HolderError)
 
         wallet = await self.context.inject(BaseWallet)
-        isVerified = await verify_proof(wallet, credential_data)
-        if isVerified == False:
+        if await verify_proof(wallet, credential_data) == False:
             raise HolderError("Proof is incorrect, could not verify")
 
-        assert credential_data.get("proof") != None
+        context = credential_data.get("@context")
+        if context == None:
+            context = credential_data.get("context")
+
         credential = THCFCredential(
-            issuanceDate=credential_data.get("issuanceDate"),
             credentialSubject=credential_data.get("credentialSubject"),
-            context=credential_data.get("@context"),
+            issuanceDate=credential_data.get("issuanceDate"),
             issuer=credential_data.get("issuer"),
             proof=credential_data.get("proof"),
             type=credential_data.get("type"),
             id=credential_data.get("id"),
+            context=context,
         )
 
         id = await credential.save(self.context, reason="Credential saved to storage")
@@ -277,7 +289,9 @@ class PDSHolder(BaseHolder):
 
         result = []
         for cred in credentials:
-            result.append(cred.serialize())
+            current = cred.serialize()
+            current["id"] = cred._id
+            result.append(current)
 
         return result
 

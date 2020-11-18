@@ -27,6 +27,9 @@ class RequestProofHandler(BaseHandler):
     async def handle(self, context: RequestContext, responder: BaseResponder):
         debug_handler(self._logger.info, context, RequestProof)
         message: RequestProof = context.message
+        print(
+            f"!!! RequestProofHandler connection_id {responder.connection_id} thread id {message._thread_id}"
+        )
         exchange_record = THCFPresentationExchange(
             connection_id=responder.connection_id,
             thread_id=message._thread_id,

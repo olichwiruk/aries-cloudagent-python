@@ -81,6 +81,6 @@ async def create_credential(
             },
         )
     except IssuerError as err:
-        raise exception(reason=err.roll_up)
+        raise exception(reason=f"""create_credential: {err.roll_up}""")
 
-    return json.loads(credential)
+    return credential

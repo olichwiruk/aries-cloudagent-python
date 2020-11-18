@@ -48,7 +48,8 @@ async def issue_credential(request: web.BaseRequest):
     exchange = await retrieve_credential_exchange(context, credential_exchange_id)
     connection = await retrieve_connection(context, exchange.connection_id)
     request = exchange.credential_request
-    credential = await create_credential(context, request, connection)
+    credential = await create_credential(context, request, connection, web.HTTPError)
+    LOG("CREDENTIAL %s", credential)
 
     issue = CredentialIssue(credential=credential)
     issue.assign_thread_id(exchange.thread_id)
@@ -118,7 +119,7 @@ async def register(app: web.Application):
             web.post("/issue-credential/send", issue_credential),
             web.post("/issue-credential/request", request_credential),
             web.get(
-                "/issue-credential/retrieve",
+                "/issue-credential/exchange/record",
                 retrieve_credential_exchange_endpoint,
                 allow_head=False,
             ),

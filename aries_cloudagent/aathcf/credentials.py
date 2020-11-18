@@ -4,11 +4,12 @@ from aries_cloudagent.messaging.valid import IndyISO8601DateTime
 from marshmallow import fields, INCLUDE, Schema
 
 import json
+from aries_cloudagent.wallet.error import WalletError
 
 
 def dictionary_to_base64(dictionary):
-    dictionary_str = str(dictionary).encode("utf-8")
-    dictionary_bytes = bytes(dictionary_str)
+    dictionary_str: str = json.dumps(dictionary)
+    dictionary_bytes = dictionary_str.encode("utf-8")
     dictionary_base64 = bytes_to_b64(dictionary_bytes).encode("utf-8")
 
     return dictionary_base64
@@ -28,24 +29,30 @@ async def verify_proof(wallet, credential: dict) -> bool:
     proof_signature = bytes.fromhex(proof["jws"])
     credential_base64 = dictionary_to_base64(cred_copy)
 
-    result = await wallet.verify_message(
-        credential_base64, proof_signature, proof["verificationMethod"]
-    )
+    try:
+        result = await wallet.verify_message(
+            credential_base64, proof_signature, proof["verificationMethod"]
+        )
+    except WalletError as err:
+        print(err.roll_up)
+        result = False
 
     return result
 
 
-async def create_proof(wallet, credential: dict) -> dict:
+async def create_proof(wallet, credential: dict, exception) -> dict:
     """
     Creates a proof dict with signature for given dictionary
     """
-    signing_key: KeyInfo = await wallet.create_signing_key()
+    try:
+        signing_key: KeyInfo = await wallet.create_signing_key()
 
-    credential_base64 = dictionary_to_base64(credential)
-    signature_bytes: bytes = await wallet.sign_message(
-        credential_base64, signing_key.verkey
-    )
-    signature_hex = signature_bytes.hex()
+        credential_base64 = dictionary_to_base64(credential)
+        signature_bytes: bytes = await wallet.sign_message(
+            credential_base64, signing_key.verkey
+        )
+    except WalletError as err:
+        raise exception(err.roll_up)
 
     proof_dict = {
         "type": "Ed25519Signature2018",
@@ -65,7 +72,7 @@ async def create_proof(wallet, credential: dict) -> dict:
         # about the controller of the key,
         # which can be checked against the issuer of the credential.
         "verificationMethod": signing_key.verkey,
-        "jws": signature_hex,
+        "jws": signature_bytes.hex(),
     }
 
     return proof_dict
@@ -87,26 +94,12 @@ class PresentationSchema(Schema):
     context = fields.List(fields.Str(required=True), required=True)
 
 
-class CredentialSubjectSchema(Schema):
-    """
-    credentialSubject = fields.Nested(
-        CredentialSubjectSchema(unknown=INCLUDE), required=True
-    )
-    Unknown INCLUDE so that unknown fields don't throw errors and
-    are included
-    """
-
-    id = fields.Str(required=True)
-
-
 class CredentialSchema(Schema):
     id = fields.Str(required=False)
     issuer = fields.Str(required=True)
     context = fields.List(fields.Str(required=True), required=True)
     type = fields.List(fields.Str(required=True), required=True)
-    credentialSubject = fields.Nested(
-        CredentialSubjectSchema(unknown=INCLUDE), required=True
-    )
+    credentialSubject = fields.Dict(keys=fields.Str(), required=True)
     proof = fields.Nested(ProofSchema(), required=True)
     issuanceDate = fields.Str(required=True)
 

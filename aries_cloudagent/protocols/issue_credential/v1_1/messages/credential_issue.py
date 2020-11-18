@@ -39,4 +39,4 @@ class CredentialIssueSchema(AgentMessageSchema):
 
         model_class = CredentialIssue
 
-    credential = fields.Nested(CredentialSchema, required=True)
+    credential = fields.Str(required=True)

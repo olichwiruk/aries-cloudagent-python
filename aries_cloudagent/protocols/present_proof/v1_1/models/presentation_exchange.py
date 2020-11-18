@@ -7,6 +7,7 @@ from marshmallow import fields, validate
 from .....messaging.models.base_record import BaseExchangeRecord, BaseExchangeSchema
 from .....messaging.valid import UUIDFour
 from aries_cloudagent.aathcf.credentials import PresentationRequestSchema
+from aries_cloudagent.config.injection_context import InjectionContext
 
 
 class THCFPresentationExchange(BaseExchangeRecord):
@@ -20,7 +21,6 @@ class THCFPresentationExchange(BaseExchangeRecord):
     RECORD_TYPE = "presentation_exchange_thcf"
     RECORD_ID_NAME = "presentation_exchange_id"
     WEBHOOK_TOPIC = "present_proof"
-    TAG_NAMES = {"thread_id"}
 
     INITIATOR_SELF = "self"
     INITIATOR_EXTERNAL = "external"
@@ -53,7 +53,7 @@ class THCFPresentationExchange(BaseExchangeRecord):
         auto_present: bool = False,
         error_msg: str = None,
         trace: bool = False,
-        **kwargs
+        **kwargs,
     ):
         """Initialize a new PresentationExchange."""
         super().__init__(presentation_exchange_id, state, trace=trace, **kwargs)
@@ -82,6 +82,7 @@ class THCFPresentationExchange(BaseExchangeRecord):
             prop: getattr(self, prop)
             for prop in (
                 "connection_id",
+                "thread_id",
                 "initiator",
                 "presentation_proposal",
                 "presentation_request",
@@ -94,6 +95,38 @@ class THCFPresentationExchange(BaseExchangeRecord):
                 "trace",
             )
         }
+
+    @property
+    def record_tags(self) -> dict:
+        """Used to define tags with which record can be found."""
+        return {
+            prop: getattr(self, prop)
+            for prop in (
+                "connection_id",
+                "thread_id",
+                "initiator",
+                "role",
+                "state",
+            )
+        }
+
+    @classmethod
+    async def retrieve_by_connection_and_thread(
+        cls, context: InjectionContext, connection_id: str, thread_id: str
+    ):
+        """Retrieve a credential exchange record by connection and thread ID."""
+        cache_key = f"credential_exchange_ctidx::{connection_id}::{thread_id}"
+        record_id = await cls.get_cached_key(context, cache_key)
+        if record_id:
+            record = await cls.retrieve_by_id(context, record_id)
+        else:
+            record = await cls.retrieve_by_tag_filter(
+                context,
+                {"thread_id": thread_id},
+                {"connection_id": connection_id} if connection_id else None,
+            )
+            await cls.set_cached_key(context, cache_key, record._id)
+        return record
 
     def __eq__(self, other: Any) -> bool:
         """Comparison between records."""

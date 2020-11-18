@@ -18,6 +18,9 @@ from aries_cloudagent.wallet.util import bytes_to_b64
 from ..messaging.util import time_now
 from aries_cloudagent.wallet.error import WalletError
 from ..aathcf.credentials import create_proof
+from aries_cloudagent.holder.pds import validate_schema
+from aries_cloudagent.aathcf.credentials import CredentialSchema
+from collections import OrderedDict
 
 
 class PDSIssuer(BaseIssuer):
@@ -167,48 +170,44 @@ class PDSIssuer(BaseIssuer):
             )
 
         credential_values.update({"id": their_did})
-        credential_dict = {
-            # This documents should exist, those should be cached
-            # it seems to be establishing a semantic context, meaning
-            # that it contains explanations of what credential fields mean
-            # and what credential fields and types are possible
-            # We should create it and it should be unchanging so that you can
-            # cache it
-            # if words in context overlapp, we should read the contexts from
-            # top to bottom, so that later contexts overwrite earlier contexts
-            "@context": [
-                "https://www.w3.org/2018/credentials/v1",
-                "https://www.schema.org",
-                # TODO: Point to some OCA Credential schema
-            ],
-            # This partly seems to be an extension of context
-            # for example URI = https://www.schema.org has a json
-            # and that json has VerifiableCredential with all possible fields
-            # which we can reach through https://www.schema.org/VerifiableCredential
-            "type": ["VerifiableCredential", credential_type],
-            # This should contain a machine readable document about the issuer
-            # and contains info that can be used to verify the credential
-            "issuer": my_did,
-            "issuanceDate": time_now(),
-            # the important stuff that credential proofs
-            "credentialSubject": credential_values
-            # "credentialSubject": {
-            #     # This should point to some info about the subject of credenial?
-            #     # machine readable document, about the subjecty
-            #     "id": "Did of subject",
-            #     "ocaSchema": {
-            #         "dri": "1234",
-            #         "dataDri": "1234",
-            #     },
-        }
+        credential_dict = OrderedDict()
+        # TODO: Point to some OCA Credential schema
 
-        try:
-            proof_dict = await create_proof(self.wallet, credential_dict)
-        except WalletError as err:
-            raise IssuerError(err.roll_up)
+        # This documents should exist, those should be cached
+        # it seems to be establishing a semantic context, meaning
+        # that it contains explanations of what credential fields mean
+        # and what credential fields and types are possible
+        # We should create it and it should be unchanging so that you can
+        # cache it
+        # if words in context overlapp, we should read the contexts from
+        # top to bottom, so that later contexts overwrite earlier contexts
+        credential_dict["context"] = [
+            "https://www.w3.org/2018/credentials/v1",
+            "https://www.schema.org",
+        ]
 
-        credential_dict.update({"proof": proof_dict})
+        # This partly seems to be an extension of context
+        # for example URI = https://www.schema.org has a json
+        # and that json has VerifiableCredential with all possible fields
+        # which we can reach through https://www.schema.org/VerifiableCredential
+        credential_dict["type"] = ["VerifiableCredential", credential_type]
+        credential_dict["issuer"] = my_did
+        credential_dict["issuanceDate"] = time_now()
+        credential_dict["credentialSubject"] = credential_values
+        # "credentialSubject": {
+        #     # This should point to some info about the subject of credenial?
+        #     # machine readable document, about the subjecty
+        #     "id": "Did of subject",
+        #     "ocaSchema": {
+        #         "dri": "1234",
+        #         "dataDri": "1234",
+        #     },
+        credential_dict["proof"] = await create_proof(
+            self.wallet, credential_dict, IssuerError
+        )
         self.log("Proof dictionary: %s", credential_dict)
+
+        validate_schema(CredentialSchema, credential_dict, IssuerError)
 
         return json.dumps(credential_dict), None
 

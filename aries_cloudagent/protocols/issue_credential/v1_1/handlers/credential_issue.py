@@ -11,6 +11,8 @@ from aries_cloudagent.protocols.issue_credential.v1_1.models.credential_exchange
     CredentialExchangeRecord,
 )
 from aries_cloudagent.storage.error import StorageError, StorageNotFoundError
+import json
+from collections import OrderedDict
 
 
 class CredentialIssueHandler(BaseHandler):
@@ -36,22 +38,23 @@ class CredentialIssueHandler(BaseHandler):
         except StorageError as err:
             raise HandlerException(err.roll_up)
 
-        credential_message: CredentialIssue = context.message
+        credential_message = context.message
         requested_credential = exchange_record.credential_request
-        issued_credential = credential_message.credential
+        issued_credential = json.loads(credential_message.credential, object_pairs_hook=OrderedDict)
 
-        if requested_credential["credential_type"] not in issued_credential["type"]:
+        if requested_credential.get("credential_type") not in issued_credential.get(
+            "type"
+        ):
             raise HandlerException(
                 f"""Requested Credential TYPE differs from Issued Credential,
                 RequestedCredential: {requested_credential},
                 IssuedCredential: {issued_credential}"""
             )
 
-        for key in requested_credential["credential_values"]:
-            if (
-                issued_credential["credentialSubject"][key]
-                != requested_credential["credential_values"][key]
-            ):
+        for key in requested_credential.get("credential_values"):
+            if issued_credential.get("credentialSubject").get(
+                key
+            ) != requested_credential.get("credential_values").get(key):
                 raise HandlerException(
                     f"""Requested Credential VALUES differ from Issued Credential,
                     RequestedCredential: {requested_credential},
@@ -71,7 +74,7 @@ class CredentialIssueHandler(BaseHandler):
                 "Error on store_credential async! TODO Error handling", err.roll_up
             )
 
-        exchange_record.state = exchange_record.STATE_ISSUED
+        exchange_record.state = exchange_record.STATE_CREDENTIAL_RECEIVED
         exchange_record.credential_id = credential_id
 
         self._logger.info("Stored Credential ID %s", credential_id)

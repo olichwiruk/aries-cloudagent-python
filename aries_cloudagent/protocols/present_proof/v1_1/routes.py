@@ -34,8 +34,10 @@ from aries_cloudagent.protocols.issue_credential.v1_1.utils import retrieve_conn
 from aries_cloudagent.aathcf.credentials import PresentationRequestedAttributesSchema
 from .messages.request_proof import RequestProof
 from .messages.present_proof import PresentProof
+from .models.utils import retrieve_exchange
 import uuid
 import logging
+import collections
 
 LOG = logging.getLogger(__name__).info
 
@@ -52,9 +54,19 @@ class PresentationRequestAPISchema(OpenAPISchema):
     connection_id = fields.Str(required=True)
 
 
+class PresentProofAPISchema(OpenAPISchema):
+    exchange_record_id = fields.Str(required=True)
+    requested_credentials = fields.Dict(
+        keys=fields.Str(),
+        values=fields.Dict(),
+        required=True,
+        many=True,
+    )
+
+
 @docs(tags=["present-proof"], summary="Sends a proof presentation")
 @request_schema(PresentationRequestAPISchema())
-async def presentation_exchange_request_presentation(request: web.BaseRequest):
+async def request_presentation_api(request: web.BaseRequest):
     """
     Request handler for sending a presentation.
 
@@ -97,22 +109,12 @@ async def presentation_exchange_request_presentation(request: web.BaseRequest):
 
     LOG("exchange_record %s", exchange_record)
     await exchange_record.save(context)
-    return web.json_response(requested_attributes)
-
-
-class PresentProofAPISchema(OpenAPISchema):
-    exchange_record_id = fields.Str(required=True)
-    requested_credentials = fields.Dict(
-        keys=fields.Str(),
-        values=fields.Dict(),
-        required=True,
-        many=True,
-    )
+    return web.json_response({"thread_id": exchange_record.thread_id})
 
 
 @docs(tags=["present-proof"], summary="Send a credential presentation")
 @request_schema(PresentProofAPISchema())
-async def present_proof(request: web.BaseRequest):
+async def present_proof_api(request: web.BaseRequest):
     """
     Allows to respond to an already existing exchange with a proof presentation.
 
@@ -127,20 +129,16 @@ async def present_proof(request: web.BaseRequest):
     outbound_handler = request.app["outbound_message_router"]
 
     body = await request.json()
-    connection_id = body.get("connection_id")
     exchange_record_id = body.get("exchange_record_id")
     requested_credentials = body.get("requested_credentials")
 
-    try:
-        exchange_record: THCFPresentationExchange = (
-            await THCFPresentationExchange.retrieve_by_id(context, exchange_record_id)
-        )
-    except StorageNotFoundError as err:
-        raise web.HTTPNotFound(
-            reason=f"Couldnt find exchange_record through this id {exchange_record_id}"
-        )
-    except StorageError as err:
-        raise web.HTTPInternalServerError(reason=err.roll_up)
+    exchange_record = await retrieve_exchange(
+        context, exchange_record_id, web.HTTPNotFound
+    )
+
+    print(
+        f"!!!! present_proof_api connection_id {exchange_record.connection_id} thread id {exchange_record.thread_id}"
+    )
 
     if exchange_record.state != exchange_record.STATE_REQUEST_RECEIVED:
         raise web.HTTPBadRequest(
@@ -151,7 +149,7 @@ async def present_proof(request: web.BaseRequest):
             reason="Invalid exchange state" + exchange_record.state
         )
 
-    connection_record = await retrieve_connection(
+    connection_record: ConnectionRecord = await retrieve_connection(
         context, exchange_record.connection_id
     )
 
@@ -167,15 +165,42 @@ async def present_proof(request: web.BaseRequest):
     except HolderError as err:
         raise web.HTTPInternalServerError(reason=err.roll_up)
 
-    message = PresentProof(credential_presentation=presentation)
+    message = PresentProof(
+        credential_presentation=json.loads(
+            presentation, object_pairs_hook=collections.OrderedDict
+        )
+    )
     message.assign_thread_id(exchange_record.thread_id)
-    await outbound_handler(message, connection_id=connection_id)
+    await outbound_handler(message, connection_id=connection_record.connection_id)
 
     exchange_record.state = exchange_record.STATE_PRESENTATION_SENT
     exchange_record.presentation = presentation
     await exchange_record.save(context)
 
     return web.json_response("success, proof sent and exchange updated")
+
+
+class RetrieveExchangeQuerySchema(OpenAPISchema):
+    connection_id = fields.Str(required=False)
+    thread_id = fields.Str(required=False)
+    initiator = fields.Str(required=False)
+    role = fields.Str(required=False)
+    state = fields.Str(required=False)
+
+
+@docs(tags=["present-proof"], summary="retrieve exchange record")
+@querystring_schema(RetrieveExchangeQuerySchema())
+async def retrieve_credential_exchange_api(request: web.BaseRequest):
+    context = request.app["request_context"]
+    outbound_handler = request.app["outbound_message_router"]
+
+    records = await THCFPresentationExchange.query(context, tag_filter=request.query)
+
+    result = []
+    for i in records:
+        result.append(i.serialize())
+
+    return web.json_response(result)
 
 
 async def register(app: web.Application):
@@ -185,11 +210,16 @@ async def register(app: web.Application):
         [
             web.post(
                 "/present-proof/request",
-                presentation_exchange_request_presentation,
+                request_presentation_api,
             ),
             web.post(
                 "/present-proof/present",
-                present_proof,
+                present_proof_api,
+            ),
+            web.get(
+                "/present-proof/exchange/record",
+                retrieve_credential_exchange_api,
+                allow_head=False,
             ),
         ]
     )
