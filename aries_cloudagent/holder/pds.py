@@ -25,7 +25,7 @@ import json
 from collections import OrderedDict
 
 
-def validate_schema(SchemaClass, schema: dict, exception):
+def validate_schema(SchemaClass, schema: dict, exception=None):
     """
     Use Marshmallow Schema class to validate a schema in the form of dictionary
     and also handle fields like @context
@@ -51,7 +51,7 @@ def validate_schema(SchemaClass, schema: dict, exception):
             SchemaClass: {SchemaClass}"""
         )
 
-        if exception:
+        if exception != None:
             raise exception(f"""Invalid Schema! errors: {errors}""")
         else:
             return errors

@@ -45,13 +45,20 @@ class PresentProofHandler(BaseHandler):
         currently is {exchange_record.role}"""
             )
 
+        assert presentation != None
+        assert exchange_record.presentation_request != None
         if (
             await verifier.verify_presentation(
-                exchange_record.presentation_request, presentation, {}, {}, {}, {}
+                presentation_request=exchange_record.presentation_request,
+                presentation=presentation,
+                schemas={},
+                credential_definitions={},
+                rev_reg_defs={},
+                rev_reg_entries={},
             )
             == False
         ):
-            raise HandlerException("Verifier couldn't verify the presentation!")
+            raise HandlerException(f"""Verifier couldn't verify the presentation!""")
 
         exchange_record.presentation = presentation
         exchange_record.verified = True

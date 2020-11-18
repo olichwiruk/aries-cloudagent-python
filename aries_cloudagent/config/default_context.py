@@ -124,8 +124,8 @@ class DefaultContextBuilder(ContextBuilder):
         context.injector.bind_provider(
             BaseVerifier,
             ClassProvider(
-                "aries_cloudagent.verifier.indy.IndyVerifier",
-                ClassProvider.Inject(BaseLedger),
+                "aries_cloudagent.verifier.pds.PDSVerifier",
+                ClassProvider.Inject(BaseWallet),
             ),
         )
         context.injector.bind_provider(

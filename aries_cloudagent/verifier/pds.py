@@ -44,7 +44,7 @@ class PDSVerifier(BaseVerifier):
         )
         errors1 = validate_schema(PresentationRequestSchema, presentation_request)
         errors2 = validate_schema(PresentationSchema, presentation)
-        if errors1 != {} or errors2 != {}:
+        if errors1 or errors2:
             self.log(
                 f"""validate_schema errors: 
                 presentation_request: {errors1} 

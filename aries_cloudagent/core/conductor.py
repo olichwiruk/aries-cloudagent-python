@@ -382,7 +382,7 @@ class Conductor:
 
         try:
             self.outbound_transport_manager.enqueue_message(context, outbound)
-        except OutboundDeliveryError as err:
+        except OutboundDeliveryError:
             LOGGER.warning("Cannot queue message for delivery, no supported transport")
             self.handle_not_delivered(context, outbound)
 

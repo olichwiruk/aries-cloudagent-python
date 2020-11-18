@@ -53,7 +53,6 @@ def execute(argv: Sequence[str] = None):
         "data_vault": "aries_cloudagent.pdstorage_thcf.data_vault.DataVault",
         "own_your_data": "aries_cloudagent.pdstorage_thcf.own_your_data.OwnYourDataVault",
     }
-    print(settings)
 
     # set ledger to read only if explicitely specified
     settings["ledger.read_only"] = settings.get("read_only_ledger", False)
