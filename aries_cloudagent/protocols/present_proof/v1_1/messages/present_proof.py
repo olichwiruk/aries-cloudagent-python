@@ -34,8 +34,9 @@ class PresentProofSchema(AgentMessageSchema):
 
         model_class = PresentProof
 
-    credential_presentation = fields.Nested(
-        PresentationSchema,
-        required=False,
-        description="Present proof / credential presentation",
-    )
+    credential_presentation = fields.Str(required=True)
+    # credential_presentation = fields.Nested(
+    #     PresentationSchema,
+    #     required=False,
+    #     description="Present proof / credential presentation",
+    # )

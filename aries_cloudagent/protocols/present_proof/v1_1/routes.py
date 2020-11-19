@@ -136,10 +136,6 @@ async def present_proof_api(request: web.BaseRequest):
         context, exchange_record_id, web.HTTPNotFound
     )
 
-    print(
-        f"!!!! present_proof_api connection_id {exchange_record.connection_id} thread id {exchange_record.thread_id}"
-    )
-
     if exchange_record.state != exchange_record.STATE_REQUEST_RECEIVED:
         raise web.HTTPBadRequest(
             reason="Invalid exchange state" + exchange_record.state
@@ -165,16 +161,14 @@ async def present_proof_api(request: web.BaseRequest):
     except HolderError as err:
         raise web.HTTPInternalServerError(reason=err.roll_up)
 
-    message = PresentProof(
-        credential_presentation=json.loads(
-            presentation, object_pairs_hook=collections.OrderedDict
-        )
-    )
+    message = PresentProof(credential_presentation=presentation)
     message.assign_thread_id(exchange_record.thread_id)
     await outbound_handler(message, connection_id=connection_record.connection_id)
 
     exchange_record.state = exchange_record.STATE_PRESENTATION_SENT
-    exchange_record.presentation = presentation
+    exchange_record.presentation = json.loads(
+        presentation, object_pairs_hook=collections.OrderedDict
+    )
     await exchange_record.save(context)
 
     return web.json_response("success, proof sent and exchange updated")

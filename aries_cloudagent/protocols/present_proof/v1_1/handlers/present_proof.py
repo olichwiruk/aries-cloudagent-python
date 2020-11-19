@@ -13,6 +13,8 @@ from aries_cloudagent.protocols.present_proof.v1_1.messages.present_proof import
 )
 from aries_cloudagent.verifier.base import BaseVerifier
 from ..models.utils import retrieve_exchange_by_thread, validate_exchange_state
+import json
+from collections import OrderedDict
 
 
 # TODO Error handling
@@ -24,9 +26,10 @@ class PresentProofHandler(BaseHandler):
     async def handle(self, context: RequestContext, responder: BaseResponder):
         debug_handler(self._logger.info, context, PresentProof)
         verifier: BaseVerifier = await context.inject(BaseVerifier)
-        presentation = context.message.credential_presentation
+        presentation = json.loads(
+            context.message.credential_presentation, object_pairs_hook=OrderedDict
+        )
 
-        assert context.message._thread_id != None
         exchange_record: THCFPresentationExchange = await retrieve_exchange_by_thread(
             context,
             responder.connection_id,
@@ -45,25 +48,23 @@ class PresentProofHandler(BaseHandler):
         currently is {exchange_record.role}"""
             )
 
-        assert presentation != None
-        assert exchange_record.presentation_request != None
-        if (
-            await verifier.verify_presentation(
-                presentation_request=exchange_record.presentation_request,
-                presentation=presentation,
-                schemas={},
-                credential_definitions={},
-                rev_reg_defs={},
-                rev_reg_entries={},
+        isVerified = await verifier.verify_presentation(
+            presentation_request=exchange_record.presentation_request,
+            presentation=presentation,
+            schemas={},
+            credential_definitions={},
+            rev_reg_defs={},
+            rev_reg_entries={},
+        )
+        if not isVerified:
+            raise HandlerException(
+                f"""Verifier couldn't verify the presentation! {isVerified}"""
             )
-            == False
-        ):
-            raise HandlerException(f"""Verifier couldn't verify the presentation!""")
 
         exchange_record.presentation = presentation
         exchange_record.verified = True
         exchange_record.state = exchange_record.STATE_VERIFIED
-        await exchange_record.save(context, "PresentationExchange updated!")
+        await exchange_record.save(context, reason="PresentationExchange updated!")
 
         await responder.send_webhook(
             "present_proof",

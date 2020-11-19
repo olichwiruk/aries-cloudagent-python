@@ -6,7 +6,7 @@ from typing import Tuple, Union
 from ..core.error import BaseError
 from .base import *
 from .models.credential import *
-from ..storage.base import BaseStorage
+from ..storage.base import BaseStorage, BaseStorageRecordSearch
 from ..storage.error import StorageNotFoundError, StorageError
 from ..config.injection_context import InjectionContext
 from aries_cloudagent.wallet.base import BaseWallet
@@ -23,6 +23,7 @@ from aries_cloudagent.aathcf.credentials import (
 )
 import json
 from collections import OrderedDict
+from aries_cloudagent.storage.record import StorageRecord
 
 
 def validate_schema(SchemaClass, schema: dict, exception=None):
@@ -64,7 +65,7 @@ class PDSHolder(BaseHolder):
     records into storage so that only storage would be requiered?"""
 
     def __init__(self, context):
-        self.log = logging.getLogger(__name__).debug
+        self.log = logging.getLogger(__name__).info
         self.context: InjectionContext = context
 
     async def get_credential(self, credential_id: str) -> str:
@@ -76,21 +77,13 @@ class PDSHolder(BaseHolder):
 
         """
 
+        storage: BaseStorage = await self.context.inject(BaseStorage)
         try:
-            credential: THCFCredential = await THCFCredential.retrieve_by_id(
-                self.context, credential_id
-            )
-        except StorageNotFoundError as err:
-            raise HolderError(f"Credential of {credential_id} not found")
+            record = await storage.get_record("THCFCredential", credential_id)
         except StorageError as err:
             raise HolderError(err.roll_up)
 
-        result = credential.serialize()
-        self.log("get_credential credential %s \nserialized: %s", credential, result)
-        result.pop("created_at")
-        result.pop("updated_at")
-
-        return json.dumps(result)
+        return record.value
 
     async def delete_credential(self, credential_id: str):
         """
@@ -100,11 +93,10 @@ class PDSHolder(BaseHolder):
             credential_id: Credential id to remove
 
         """
+        storage: BaseStorage = await self.context.inject(BaseStorage)
         try:
-            credential: THCFCredential = await THCFCredential.retrieve_by_id(
-                self.context, credential_id
-            )
-            await credential.delete_record(self.context)
+            record = await storage.get_record("THCFCredential", credential_id)
+            await storage.delete_record(record)
         except StorageError as err:
             raise HolderError(err.roll_up)
 
@@ -178,8 +170,8 @@ class PDSHolder(BaseHolder):
                 raise HolderError(
                     f"credential_id {cred_id} for field {field} is invalid"
                 )
+            credential = json.loads(credential, object_pairs_hook=OrderedDict)
             self.log("CREDENTIAL_LIST ITEM %s", credential)
-            credential = json.loads(credential)
             credential_list.append(credential)
 
         # Create type list
@@ -250,50 +242,46 @@ class PDSHolder(BaseHolder):
 
         """
         self.log("store_credential invoked credential_data %s", credential_data)
+
+        context = credential_data.get("@context")
+        if context != None:
+            credential_data["context"] = context
         errors = validate_schema(CredentialSchema, credential_data, HolderError)
 
         wallet = await self.context.inject(BaseWallet)
         if await verify_proof(wallet, credential_data) == False:
             raise HolderError("Proof is incorrect, could not verify")
 
-        context = credential_data.get("@context")
-        if context == None:
-            context = credential_data.get("context")
+        storage: BaseStorage = await self.context.inject(BaseStorage)
+        try:
+            record = StorageRecord("THCFCredential", json.dumps(credential_data))
+            # TODO: TAGS?
+            await storage.add_record(record)
+        except StorageError as err:
+            raise HolderError(err.roll_up)
 
-        credential = THCFCredential(
-            credentialSubject=credential_data.get("credentialSubject"),
-            issuanceDate=credential_data.get("issuanceDate"),
-            issuer=credential_data.get("issuer"),
-            proof=credential_data.get("proof"),
-            type=credential_data.get("type"),
-            id=credential_data.get("id"),
-            context=context,
-        )
-
-        id = await credential.save(self.context, reason="Credential saved to storage")
-        self.log("Saved Credential id: %s serialized %s", id, credential.serialize())
-
-        return id
+        return record.id
 
     async def get_credentials(self) -> list:
         """
         Retrieve credential list based on a filter(TODO)
 
         """
-        self.log("get_credential invoked")
-
+        storage: BaseStorage = await self.context.inject(BaseStorage)
         try:
-            credentials: THCFCredential = await THCFCredential.query(self.context)
+            search: BaseStorageRecordSearch = storage.search_records("THCFCredential")
+            records = await search.fetch_all()
         except StorageError as err:
             raise HolderError(err.roll_up)
 
-        result = []
-        for cred in credentials:
-            current = cred.serialize()
-            current["id"] = cred._id
-            result.append(current)
+        credentials = []
+        for i in records:
+            cred = {"id": i.id, "credentials": i.value}
+            credentials.append(cred)
 
-        return result
+        self.log("Credentials GET CREDENTIALS %s", credentials)
+
+        return credentials
 
     async def create_revocation_state(
         self,

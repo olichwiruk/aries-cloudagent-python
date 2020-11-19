@@ -2,6 +2,7 @@ from aries_cloudagent.wallet.util import bytes_to_b64, str_to_b64
 from aries_cloudagent.messaging.util import time_now
 from aries_cloudagent.messaging.valid import IndyISO8601DateTime
 from marshmallow import fields, INCLUDE, Schema
+from collections import OrderedDict
 
 import json
 from aries_cloudagent.wallet.error import WalletError
@@ -15,18 +16,19 @@ def dictionary_to_base64(dictionary):
     return dictionary_base64
 
 
-async def verify_proof(wallet, credential: dict) -> bool:
+async def verify_proof(wallet, credential: OrderedDict) -> bool:
     """
     Args: Credential: full schema with proof field
     """
+    print("VERIFY PROOF", credential)
     cred_copy = credential.copy()
     proof = cred_copy["proof"]
+    proof_signature = bytes.fromhex(proof["jws"])
     if proof["type"] != "Ed25519Signature2018":
         print("This proof type is not implemented, ", proof["type"])
         result = False
 
     del cred_copy["proof"]
-    proof_signature = bytes.fromhex(proof["jws"])
     credential_base64 = dictionary_to_base64(cred_copy)
 
     try:
@@ -40,10 +42,11 @@ async def verify_proof(wallet, credential: dict) -> bool:
     return result
 
 
-async def create_proof(wallet, credential: dict, exception) -> dict:
+async def create_proof(wallet, credential: OrderedDict, exception) -> OrderedDict:
     """
     Creates a proof dict with signature for given dictionary
     """
+    print("CREATE PROOF", credential)
     try:
         signing_key: KeyInfo = await wallet.create_signing_key()
 
@@ -54,28 +57,34 @@ async def create_proof(wallet, credential: dict, exception) -> dict:
     except WalletError as err:
         raise exception(err.roll_up)
 
-    proof_dict = {
-        "type": "Ed25519Signature2018",
-        "created": time_now(),
-        # If the cryptographic suite expects a proofPurpose property,
-        # it is expected to exist and be a valid value, such as assertionMethod.
-        #
-        "proofPurpose": "assertionMethod",
-        # @TODO: verification method should point to something
-        # that lets you verify the data, reference to signing entity
-        # @
-        # The verificationMethod property specifies,
-        # for example, the public key that can be used
-        # to verify the digital signature
-        # @
-        # Dereferencing a public key URL reveals information
-        # about the controller of the key,
-        # which can be checked against the issuer of the credential.
-        "verificationMethod": signing_key.verkey,
-        "jws": signature_bytes.hex(),
-    }
+    proof = OrderedDict()
+    proof["jws"] = signature_bytes.hex()
+    proof["type"] = "Ed25519Signature2018"
+    proof["created"] = time_now()
+    proof["proofPurpose"] = "assertionMethod"
+    proof["verificationMethod"] = signing_key.verkey
+    # proof_dict = {
+    #     "type": "",
+    #     "created": ,
+    #     # If the cryptographic suite expects a proofPurpose property,
+    #     # it is expected to exist and be a valid value, such as assertionMethod.
+    #     "proofPurpose": ,
+    #     # @TODO: verification method should point to something
+    #     # that lets you verify the data, reference to signing entity
+    #     # @
+    #     # The verificationMethod property specifies,
+    #     # for example, the public key that can be used
+    #     # to verify the digital signature
+    #     # @
+    #     # Dereferencing a public key URL reveals information
+    #     # about the controller of the key,
+    #     # which can be checked against the issuer of the credential.
+    #     "verificationMethod": ,
+    #
+    #     "jws": , SIGNATURE
+    # }
 
-    return proof_dict
+    return proof
 
 
 class ProofSchema(Schema):
