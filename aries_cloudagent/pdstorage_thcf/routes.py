@@ -249,12 +249,12 @@ async def get_storage_types(request: web.BaseRequest):
     except StorageNotFoundError as err:
         raise web.HTTPNotFound(reason="Couldn't find active storage" + err.roll_up)
 
-    registered_type_names = []
+    registered_type_names = {}
     for key in registered_types:
         personal_storage = await context.inject(
             BasePersonalDataStorage, {"personal_storage_type": (key, instance_name)}
         )
-        registered_type_names.append(key)
+        registered_type_names[key] = personal_storage.preview_settings
 
     return web.json_response(
         {
