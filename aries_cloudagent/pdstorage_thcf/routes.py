@@ -147,6 +147,14 @@ async def set_settings(request: web.BaseRequest):
         instance_name = per_type_setting.get("optional_instance_name", "default")
         per_type_setting.pop("optional_instance_name", None)
 
+        scope = per_type_setting.get("scope")
+        if scope is not None:
+            if not scope:
+                per_type_setting.pop("scope")
+            elif scope.isnumeric():
+                scope_options = {"0": "admin", "1": "write", "2": "read"}
+                per_type_setting["scope"] = scope_options.get(scope, "")
+
         # create or update a saved pds
         try:
             saved_pds = await SavedPersonalStorage.retrieve_type_name(

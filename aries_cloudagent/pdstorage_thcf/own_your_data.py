@@ -18,7 +18,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
         self.token = None
         self.preview_settings = {
             "oca_schema_namespace": "pds",
-            "oca_schema_dri": "cB9LRYioVa4VDcgi76cbEXv9Y53W7CuuLWrFwg7cXnT9",
+            "oca_schema_dri": "9bABtmHu628Ss4oHmyTU5gy7QB1VftngewTmh7wdmN1j",
         }
 
     async def update_token(self):
@@ -30,6 +30,8 @@ class OwnYourDataVault(BasePersonalDataStorage):
         self.api_url = '{url.scheme}://{url.netloc}'.format(url=parsed_url)
         client_id = self.settings.get("client_id")
         client_secret = self.settings.get("client_secret")
+        grant_type = self.settings.get("grant_type", "client_credentials")
+        scope = self.settings.get("scope")
 
         if self.api_url is None:
             raise PersonalDataStorageLackingConfigurationError(
@@ -45,13 +47,16 @@ class OwnYourDataVault(BasePersonalDataStorage):
             )
 
         async with ClientSession() as session:
+            body = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "grant_type": grant_type
+            }
+            if scope is not None:
+                body["scope"] = scope
             result = await session.post(
                 self.api_url + "/oauth/token",
-                json={
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "grant_type": "client_credentials",
-                },
+                json=body,
             )
             if result.status != 200:
                 raise PersonalDataStorageServerError(
