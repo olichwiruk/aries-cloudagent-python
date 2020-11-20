@@ -24,6 +24,7 @@ from aries_cloudagent.aathcf.credentials import (
 import json
 from collections import OrderedDict
 from aries_cloudagent.storage.record import StorageRecord
+from aries_cloudagent.storage.indy import IndyStorage
 
 
 def validate_schema(SchemaClass, schema: dict, exception=None):
@@ -60,13 +61,10 @@ def validate_schema(SchemaClass, schema: dict, exception=None):
 
 # TODO: Better error handling
 class PDSHolder(BaseHolder):
-    """It requires context with bound storage!
-    # TODO: Maybe should consider manually packing
-    records into storage so that only storage would be requiered?"""
-
-    def __init__(self, context):
-        self.log = logging.getLogger(__name__).info
-        self.context: InjectionContext = context
+    def __init__(self, wallet, storage):
+        self.log = logging.getLogger(__name__).debug
+        self.wallet = wallet
+        self.storage = storage
 
     async def get_credential(self, credential_id: str) -> str:
         """
@@ -77,9 +75,8 @@ class PDSHolder(BaseHolder):
 
         """
 
-        storage: BaseStorage = await self.context.inject(BaseStorage)
         try:
-            record = await storage.get_record("THCFCredential", credential_id)
+            record = await self.storage.get_record("THCFCredential", credential_id)
         except StorageError as err:
             raise HolderError(err.roll_up)
 
@@ -93,10 +90,9 @@ class PDSHolder(BaseHolder):
             credential_id: Credential id to remove
 
         """
-        storage: BaseStorage = await self.context.inject(BaseStorage)
         try:
-            record = await storage.get_record("THCFCredential", credential_id)
-            await storage.delete_record(record)
+            record = await self.storage.get_record("THCFCredential", credential_id)
+            await self.storage.delete_record(record)
         except StorageError as err:
             raise HolderError(err.roll_up)
 
@@ -190,8 +186,7 @@ class PDSHolder(BaseHolder):
         presentation["type"] = request_type
         presentation["verifiableCredential"] = credential_list
 
-        wallet = await self.context.inject(BaseWallet)
-        proof = await create_proof(wallet, presentation, HolderError)
+        proof = await create_proof(self.wallet, presentation, HolderError)
         presentation.update({"proof": proof})
 
         validate_schema(PresentationSchema, presentation, HolderError)
@@ -248,15 +243,13 @@ class PDSHolder(BaseHolder):
             credential_data["context"] = context
         errors = validate_schema(CredentialSchema, credential_data, HolderError)
 
-        wallet = await self.context.inject(BaseWallet)
-        if await verify_proof(wallet, credential_data) == False:
+        if await verify_proof(self.wallet, credential_data) == False:
             raise HolderError("Proof is incorrect, could not verify")
 
-        storage: BaseStorage = await self.context.inject(BaseStorage)
         try:
             record = StorageRecord("THCFCredential", json.dumps(credential_data))
             # TODO: TAGS?
-            await storage.add_record(record)
+            await self.storage.add_record(record)
         except StorageError as err:
             raise HolderError(err.roll_up)
 
@@ -266,17 +259,21 @@ class PDSHolder(BaseHolder):
         """
         Retrieve credential list based on a filter(TODO)
 
+        FIXME This is ideally only for debug? so maybe pages are not
+        needed
+
         """
-        storage: BaseStorage = await self.context.inject(BaseStorage)
         try:
-            search: BaseStorageRecordSearch = storage.search_records("THCFCredential")
+            search: BaseStorageRecordSearch = self.storage.search_records(
+                "THCFCredential"
+            )
             records = await search.fetch_all()
         except StorageError as err:
             raise HolderError(err.roll_up)
 
         credentials = []
         for i in records:
-            cred = {"id": i.id, "credentials": i.value}
+            cred = {"id": i.id, "credential": i.value}
             credentials.append(cred)
 
         self.log("Credentials GET CREDENTIALS %s", credentials)

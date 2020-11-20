@@ -9,45 +9,42 @@ from ..pds import *
 from ...aathcf.credentials import verify_proof
 
 
-TEST_DID = "55GkHamhTU1ZbTbV2ab9DE"
-SCHEMA_NAME = "resident"
-SCHEMA_VERSION = "1.0"
-SCHEMA_TXN = 1234
-SCHEMA_ID = f"{TEST_DID}:2:{SCHEMA_NAME}:{SCHEMA_VERSION}"
-CRED_DEF_ID = f"{TEST_DID}:3:CL:{SCHEMA_TXN}:default"
-
-credential_test_schema = {
-    "@context": [
-        "https://www.w3.org/2018/credentials/v1",
-        "https://www.schema.org",
-    ],
-    "type": [
-        "VerifiableCredential",
-        "@TODO should this be oca schema or what dri points to",
-    ],
-    "issuer": "1234",
-    "issuanceDate": time_now(),
-    "credentialSubject": {
-        "id": "TODO: Did of subject",
-        "ocaSchema": {
-            "dri": "1234",
-            "dataDri": "1234",
+credential_test_schema = OrderedDict(
+    {
+        "@context": [
+            "https://www.w3.org/2018/credentials/v1",
+            "https://www.schema.org",
+        ],
+        "type": [
+            "VerifiableCredential",
+            "@TODO should this be oca schema or what dri points to",
+        ],
+        "issuer": "1234",
+        "issuanceDate": time_now(),
+        "credentialSubject": {
+            "id": "TODO: Did of subject",
+            "ocaSchema": {
+                "dri": "1234",
+                "dataDri": "1234",
+            },
         },
-    },
-    "proof": {
-        "type": "Ed25519Signature2018",
-        "created": time_now(),
-        "proofPurpose": "assertionMethod",
-        "verificationMethod": "1234",
-        "jws": "1234",
-    },
-}
+        "proof": {
+            "type": "Ed25519Signature2018",
+            "created": time_now(),
+            "proofPurpose": "assertionMethod",
+            "verificationMethod": "1234",
+            "jws": "1234",
+        },
+    }
+)
 
 
 def assert_that_contains(base: dict, to_verify: dict):
     # assert that contains at least values of base or more
     # and these least values are not NULL
     for key in base:
+        if key == "@context":
+            key = "context"
         assert to_verify[key] != None
         assert to_verify[key] != {}
         assert to_verify[key] != []
@@ -94,3 +91,20 @@ class TestPDSIssuer(AsyncTestCase):
         assert_that_contains(credential_test_schema["proof"], credential_dict["proof"])
 
         assert await verify_proof(self.wallet, credential_dict) == True
+
+    async def test_create_credential_null(self):
+        connection = ConnectionRecord(my_did="1234-my", their_did="1234-their")
+        with self.assertRaises(IssuerError):
+            credential, _ = await self.issuer.create_credential(
+                schema={"credential_type": "TestType"},
+                credential_values={},
+                credential_offer={},
+                credential_request={"connection_record": connection},
+            )
+        with self.assertRaises(IssuerError):
+            credential, _ = await self.issuer.create_credential(
+                schema={},
+                credential_values={},
+                credential_offer={},
+                credential_request={"connection_record": connection},
+            )

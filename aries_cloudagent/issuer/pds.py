@@ -23,6 +23,13 @@ from aries_cloudagent.aathcf.credentials import CredentialSchema
 from collections import OrderedDict
 
 
+def raise_exception_on_null(value, value_name, exception=IssuerError):
+    if value == None or value == {}:
+        raise exception(
+            f"""{value_name} is empty, it needs to be filled out! currently it looks like this {value}"""
+        )
+
+
 class PDSIssuer(BaseIssuer):
     def __init__(self, wallet: BaseWallet):
         """
@@ -150,24 +157,21 @@ class PDSIssuer(BaseIssuer):
             A tuple of created credential and revocation id
 
         """
-        self.log("create_credential invoked")
-
         credential_type = schema.get("credential_type")
         connection_record: ConnectionRecord = credential_request.get(
             "connection_record"
         )
 
+        assert isinstance(
+            connection_record, ConnectionRecord
+        ), "credentials_request needs to have connection_record of type ConnectionRecord"
         my_did = connection_record.my_did
         their_did = connection_record.their_did
-        if None in [my_did, their_did]:
-            raise IssuerError(
-                f"""You don't have a established did with this connection
-                or they don't have a did, your_did {my_did}, their_did {their_did}"""
-            )
-        if None or {} in [schema, credential_values, connection_record]:
-            raise IssuerError(
-                f"""[schema, credential_values, connection_record] {[schema, credential_values, connection_record]} some of these need to be filled in """
-            )
+        raise_exception_on_null(my_did, "connection.my_did")
+        raise_exception_on_null(their_did, "connection.their_did")
+        raise_exception_on_null(schema, "input schema")
+        raise_exception_on_null(credential_values, "input credential_values")
+        raise_exception_on_null(connection_record, "input connection_record")
 
         credential_values.update({"id": their_did})
         credential_dict = OrderedDict()
@@ -205,8 +209,6 @@ class PDSIssuer(BaseIssuer):
         credential_dict["proof"] = await create_proof(
             self.wallet, credential_dict, IssuerError
         )
-        self.log("Proof dictionary: %s", credential_dict)
-
         validate_schema(CredentialSchema, credential_dict, IssuerError)
 
         return json.dumps(credential_dict), None

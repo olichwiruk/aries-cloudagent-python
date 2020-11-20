@@ -20,7 +20,6 @@ async def verify_proof(wallet, credential: OrderedDict) -> bool:
     """
     Args: Credential: full schema with proof field
     """
-    print("VERIFY PROOF", credential)
     cred_copy = credential.copy()
     proof = cred_copy["proof"]
     proof_signature = bytes.fromhex(proof["jws"])
@@ -46,7 +45,6 @@ async def create_proof(wallet, credential: OrderedDict, exception) -> OrderedDic
     """
     Creates a proof dict with signature for given dictionary
     """
-    print("CREATE PROOF", credential)
     try:
         signing_key: KeyInfo = await wallet.create_signing_key()
 

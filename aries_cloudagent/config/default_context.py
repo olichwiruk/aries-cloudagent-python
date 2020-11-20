@@ -81,7 +81,6 @@ class DefaultContextBuilder(ContextBuilder):
             ),
         )
 
-        # THCF
         context.injector.bind_provider(
             BasePersonalDataStorage,
             PersonalDataStorageProvider(),
@@ -116,7 +115,8 @@ class DefaultContextBuilder(ContextBuilder):
             StatsProvider(
                 ClassProvider(
                     "aries_cloudagent.holder.pds.PDSHolder",
-                    context,
+                    ClassProvider.Inject(BaseWallet),
+                    ClassProvider.Inject(BaseStorage),
                 ),
                 ("get_credential", "store_credential", "create_credential_request"),
             ),

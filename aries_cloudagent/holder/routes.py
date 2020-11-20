@@ -18,6 +18,7 @@ from ..messaging.valid import (
     UUIDFour,
 )
 from ..wallet.error import WalletNotFoundError
+from collections import OrderedDict
 
 
 class AttributeMimeTypesResultSchema(OpenAPISchema):
@@ -189,6 +190,9 @@ async def credentials_list(request: web.BaseRequest):
         credentials = await holder.get_credentials()
     except HolderError as err:
         raise web.HTTPBadRequest(reason=err.roll_up) from err
+
+    for i in credentials:
+        i["credential"] = json.loads(i["credential"], object_pairs_hook=OrderedDict)
 
     return web.json_response({"results": credentials})
 

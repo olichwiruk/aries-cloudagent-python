@@ -13,38 +13,6 @@ from aries_cloudagent.connections.models.connection_record import ConnectionReco
 from ...issuer.tests.test_pds import create_test_credential
 from aries_cloudagent.messaging.util import time_now
 
-#     {
-#         "name": string,
-#         "version": string,
-#         "nonce": string, - a big number represented as a string (use `generate_nonce` function to generate 80-bit number)
-#         "requested_attributes": { // set of requested attributes
-#              "<attr_referent>": <attr_info>, // see below
-#              ...,
-#         },
-#         "requested_predicates": { // set of requested predicates
-#              "<predicate_referent>": <predicate_info>, // see below
-#              ...,
-#          },
-#         "non_revoked": Optional<<non_revoc_interval>>, // see below,
-#                        // If specified prover must proof non-revocation
-#                        // for date in this interval for each attribute
-#                        // (applies to every attribute and predicate but can be overridden on attribute level)
-#                        // (can be overridden on attribute level)
-#     }
-# :param requested_credentials_json: either a credential or self-attested attribute for each requested attribute
-#     {
-#         "self_attested_attributes": {
-#             "self_attested_attribute_referent": string
-#         },
-#         "requested_attributes": {
-#             "requested_attribute_referent_1": {"cred_id": string, "timestamp": Optional<number>, revealed: <bool> }},
-#             "requested_attribute_referent_2": {"cred_id": string, "timestamp": Optional<number>, revealed: <bool> }}
-#         },
-#         "requested_predicates": {
-#             "requested_predicates_referent_1": {"cred_id": string, "timestamp": Optional<number> }},
-#         }
-#     }
-
 presentation_request = {
     "@context": [
         "https://www.w3.org/2018/credentials/v1",
@@ -81,41 +49,50 @@ class TestPDSHolder(AsyncTestCase):
         self.context: InjectionContext = InjectionContext()
         storage = BasicStorage()
         self.wallet = BasicWallet()
+        self.holder = PDSHolder(self.wallet, storage)
         issuer = PDSIssuer(self.wallet)
-        self.credential = await create_test_credential(issuer)
 
-        self.context.injector.bind_instance(BaseStorage, storage)
         self.context.injector.bind_instance(BaseWallet, self.wallet)
-        self.holder = PDSHolder(self.context)
+
+        self.credential = await create_test_credential(issuer)
         self.cred_id = await self.holder.store_credential({}, self.credential, {})
-        assert self.cred_id != None
 
     async def test_retrieve_records_are_the_same(self):
-        cred = await THCFCredential.retrieve_by_id(self.context, self.cred_id)
-        cred_json = cred.serialize()
-        cred_json.pop("created_at")
-        cred_json.pop("updated_at")
-
         cred_holder = await self.holder.get_credential(self.cred_id)
+        assert isinstance(cred_holder, str)
         cred_holder_json = json.loads(cred_holder)
-        assert cred_holder_json == cred_json
+        assert cred_holder_json == self.credential
 
     async def test_store_credential_retrieve_and_delete(self):
         cred = await self.holder.get_credential(self.cred_id)
         cred_serialized = json.loads(cred)
-
-        assert cred_serialized.get("proof") != None
-
-        # check if dict fields are equal to record
-        for key in self.credential:
-            if key == "@context":
-                assert self.credential[key] == cred_serialized["context"]
-                continue
-            assert self.credential[key] == cred_serialized[key]
+        assert cred_serialized == self.credential
 
         await self.holder.delete_credential(self.cred_id)
         with self.assertRaises(HolderError):
             cred = await self.holder.get_credential(self.cred_id)
+        with self.assertRaises(HolderError):
+            cred = await self.holder.delete_credential(self.cred_id)
+
+    async def test_invalid_parameters_getters(self):
+        with self.assertRaises(HolderError):
+            cred = await self.holder.get_credential("12")
+
+        with self.assertRaises(HolderError):
+            await self.holder.delete_credential("34")
+
+    async def test_invalid_parameters_create_pres(self):
+        schema_with_credential_ids = requested_credentials.copy()
+        schema_with_credential_ids["requested_attributes"]["first_name"][
+            "cred_id"
+        ] = self.cred_id
+
+        with self.assertRaises(HolderError):
+            await self.holder.create_presentation(
+                {}, schema_with_credential_ids, {}, {}
+            )
+        with self.assertRaises(HolderError):
+            await self.holder.create_presentation(presentation_request, {}, {}, {})
 
     async def test_create_presentation(self):
         cred = requested_credentials.copy()
@@ -123,11 +100,13 @@ class TestPDSHolder(AsyncTestCase):
         presentation = await self.holder.create_presentation(
             presentation_request, cred, {}, {}
         )
+        presentation = json.loads(presentation)
         assert await verify_proof(self.wallet, presentation) == True
         assert isinstance(presentation["id"], str)
         assert presentation["id"].startswith("urn:uuid:")
-        assert presentation["@context"] == presentation_example["@context"]
+        assert presentation["context"] == presentation_example["@context"]
         assert len(presentation["type"]) == 2
+        assert len(presentation["context"]) == 2
 
     async def test_create_presentation_invalid_parameters_passed(self):
         with self.assertRaises(HolderError):
