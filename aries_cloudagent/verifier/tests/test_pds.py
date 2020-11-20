@@ -97,31 +97,20 @@ class TestPDSVerifier(AsyncTestCase):
     async def setUp(self):
         self.context: InjectionContext = InjectionContext()
         wallet = BasicWallet()
-        storage = BasicStorage()
-        issuer = PDSIssuer(wallet)
-        holder = PDSHolder(wallet, storage)
         self.verifier = PDSVerifier(wallet)
-        self.credential = await create_test_credential(issuer)
-        self.cred_id = await holder.store_credential({}, self.credential, {})
-        # self.requested_credentials = {
-        #     "type": ["string"],
-        #     "context": ["string"],
-        #     "nonce": "caf192b5-b7e1-4143-b1d9-a25acbe5d948",
-        #     "requested_attributes": {"test": {"restrictions": [{}]}},
-        # }
-        # self.presentation = await holder.create_presentation(
-        #     presentation_request={
-        #         "requested_attributes": {"test": {"restrictions": [{}]}}
-        #     },
-        #     requested_credentials=self.requested_credentials,
-        #     schemas={},
-        #     credential_definitions={},
-        # )
-
-        # self.context.injector.bind_instance(BaseWallet, wallet)
 
     async def test_presentation_verification(self):
+        result = await self.verifier.verify_presentation(pres_request, pres)
+        assert result == True
+
+        result = await self.verifier.verify_presentation({}, pres, {}, {}, {}, {})
+        assert result == False
+
+        result = await self.verifier.verify_presentation({}, {}, {}, {}, {}, {})
+        assert result == False
+
+        pres["proof"]["jws"] += hex(12)
         result = await self.verifier.verify_presentation(
             pres_request, pres, {}, {}, {}, {}
         )
-        assert result == True
+        assert result == False

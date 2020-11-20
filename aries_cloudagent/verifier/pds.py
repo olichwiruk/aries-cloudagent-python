@@ -21,10 +21,10 @@ class PDSVerifier(BaseVerifier):
         self,
         presentation_request,
         presentation,
-        schemas,
-        credential_definitions,
-        rev_reg_defs,
-        rev_reg_entries,
+        schemas={},
+        credential_definitions={},
+        rev_reg_defs={},
+        rev_reg_entries={},
     ):
         """
         Verify a presentation.

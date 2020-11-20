@@ -1,4 +1,4 @@
-from aries_cloudagent.wallet.util import bytes_to_b64, str_to_b64
+from aries_cloudagent.wallet.util import b64_to_bytes, bytes_to_b64, str_to_b64
 from aries_cloudagent.messaging.util import time_now
 from aries_cloudagent.messaging.valid import IndyISO8601DateTime
 from marshmallow import fields, INCLUDE, Schema
@@ -9,9 +9,8 @@ from aries_cloudagent.wallet.error import WalletError
 
 
 def dictionary_to_base64(dictionary):
-    dictionary_str: str = json.dumps(dictionary)
-    dictionary_bytes = dictionary_str.encode("utf-8")
-    dictionary_base64 = bytes_to_b64(dictionary_bytes).encode("utf-8")
+    dictionary_str = json.dumps(dictionary)
+    dictionary_base64 = str_to_b64(dictionary_str, urlsafe=True).encode("utf-8")
 
     return dictionary_base64
 
@@ -22,7 +21,7 @@ async def verify_proof(wallet, credential: OrderedDict) -> bool:
     """
     cred_copy = credential.copy()
     proof = cred_copy["proof"]
-    proof_signature = bytes.fromhex(proof["jws"])
+    proof_signature = b64_to_bytes(proof["jws"], urlsafe=True)
     if proof["type"] != "Ed25519Signature2018":
         print("This proof type is not implemented, ", proof["type"])
         result = False
@@ -56,7 +55,7 @@ async def create_proof(wallet, credential: OrderedDict, exception) -> OrderedDic
         raise exception(err.roll_up)
 
     proof = OrderedDict()
-    proof["jws"] = signature_bytes.hex()
+    proof["jws"] = bytes_to_b64(signature_bytes, urlsafe=True, pad=False)
     proof["type"] = "Ed25519Signature2018"
     proof["created"] = time_now()
     proof["proofPurpose"] = "assertionMethod"
