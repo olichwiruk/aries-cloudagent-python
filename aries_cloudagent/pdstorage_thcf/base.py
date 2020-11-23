@@ -8,7 +8,7 @@ class BasePersonalDataStorage(ABC):
         self.preview_settings = {}
 
     @abstractmethod
-    async def save(self, record: str) -> str:
+    async def save(self, record: str, metadata: str) -> str:
         """
         Returns: saved data id, (should maybe return None on key not found?)
 

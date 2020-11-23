@@ -22,7 +22,7 @@ class LocalPersonalDataStorage(BasePersonalDataStorage):
 
         return result
 
-    async def save(self, record: str) -> str:
+    async def save(self, record: str, metadata: str) -> str:
         result = encode(record)
         self.storage[result] = record
 
