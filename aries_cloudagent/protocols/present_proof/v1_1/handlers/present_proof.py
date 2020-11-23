@@ -12,9 +12,10 @@ from aries_cloudagent.protocols.present_proof.v1_1.messages.present_proof import
     PresentProof,
 )
 from aries_cloudagent.verifier.base import BaseVerifier
-from ..models.utils import retrieve_exchange_by_thread, validate_exchange_state
+from ..models.utils import retrieve_exchange_by_thread
 import json
 from collections import OrderedDict
+from aries_cloudagent.aathcf.credentials import raise_exception_invalid_state
 
 
 # TODO Error handling
@@ -37,16 +38,12 @@ class PresentProofHandler(BaseHandler):
             HandlerException,
         )
 
-        if exchange_record.state != THCFPresentationExchange.STATE_REQUEST_SENT:
-            raise HandlerException(
-                f"""Invalid exchange state, should be {THCFPresentationExchange.STATE_REQUEST_SENT}
-        currently is {exchange_record.state}"""
-            )
-        if exchange_record.role != THCFPresentationExchange.ROLE_VERIFIER:
-            raise HandlerException(
-                f"""Invalid exchange role, should be {THCFPresentationExchange.ROLE_VERIFIER}
-        currently is {exchange_record.role}"""
-            )
+        raise_exception_invalid_state(
+            exchange_record,
+            THCFPresentationExchange.STATE_REQUEST_SENT,
+            THCFPresentationExchange.ROLE_VERIFIER,
+            HandlerException,
+        )
 
         isVerified = await verifier.verify_presentation(
             presentation_request=exchange_record.presentation_request,

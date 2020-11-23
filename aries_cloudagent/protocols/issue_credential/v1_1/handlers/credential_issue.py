@@ -13,6 +13,7 @@ from aries_cloudagent.protocols.issue_credential.v1_1.models.credential_exchange
 from aries_cloudagent.storage.error import StorageError, StorageNotFoundError
 import json
 from collections import OrderedDict
+from aries_cloudagent.aathcf.credentials import raise_exception_invalid_state
 
 
 class CredentialIssueHandler(BaseHandler):
@@ -37,6 +38,13 @@ class CredentialIssueHandler(BaseHandler):
             )
         except StorageError as err:
             raise HandlerException(err.roll_up)
+
+        raise_exception_invalid_state(
+            exchange_record,
+            CredentialExchangeRecord.STATE_REQUEST_SENT,
+            CredentialExchangeRecord.ROLE_HOLDER,
+            HandlerException,
+        )
 
         credential_message = context.message
         requested_credential = exchange_record.credential_request

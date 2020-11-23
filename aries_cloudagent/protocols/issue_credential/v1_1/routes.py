@@ -15,6 +15,7 @@ from aries_cloudagent.protocols.issue_credential.v1_1.messages.credential_reques
     CredentialRequest,
 )
 from .utils import *
+from aries_cloudagent.aathcf.credentials import raise_exception_invalid_state
 
 
 LOG = logging.getLogger(__name__).info
@@ -45,6 +46,12 @@ async def issue_credential(request: web.BaseRequest):
 
     credential_exchange_id = request.query.get("credential_exchange_id")
     exchange = await retrieve_credential_exchange(context, credential_exchange_id)
+    raise_exception_invalid_state(
+        exchange,
+        CredentialExchangeRecord.STATE_REQUEST_RECEIVED,
+        CredentialExchangeRecord.ROLE_ISSUER,
+        web.HTTPBadRequest,
+    )
     connection = await retrieve_connection(context, exchange.connection_id)
     request = exchange.credential_request
     credential = await create_credential(context, request, connection, web.HTTPError)

@@ -31,7 +31,7 @@ from ....utils.tracing import trace_event, get_timer, AdminAPIMessageTracingSche
 from ....wallet.error import WalletNotFoundError
 from ...problem_report.v1_0 import internal_error
 from aries_cloudagent.protocols.issue_credential.v1_1.utils import retrieve_connection
-from aries_cloudagent.aathcf.credentials import PresentationRequestedAttributesSchema
+from aries_cloudagent.aathcf.credentials import PresentationRequestedAttributesSchema, raise_exception_invalid_state
 from .messages.request_proof import RequestProof
 from .messages.present_proof import PresentProof
 from .models.utils import retrieve_exchange
@@ -132,14 +132,12 @@ async def present_proof_api(request: web.BaseRequest):
         context, exchange_record_id, web.HTTPNotFound
     )
 
-    if exchange_record.state != exchange_record.STATE_REQUEST_RECEIVED:
-        raise web.HTTPBadRequest(
-            reason="Invalid exchange state" + exchange_record.state
-        )
-    if exchange_record.role != exchange_record.ROLE_PROVER:
-        raise web.HTTPBadRequest(
-            reason="Invalid exchange state" + exchange_record.state
-        )
+    raise_exception_invalid_state(
+        exchange_record,
+        THCFPresentationExchange.STATE_REQUEST_RECEIVED,
+        THCFPresentationExchange.ROLE_PROVER,
+        web.HTTPBadRequest,
+    )
 
     connection_record: ConnectionRecord = await retrieve_connection(
         context, exchange_record.connection_id

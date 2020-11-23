@@ -155,6 +155,26 @@ class PDSHolder(BaseHolder):
                     f"credential_id {cred_id} for field {field} is invalid"
                 )
             credential = json.loads(credential, object_pairs_hook=OrderedDict)
+
+            """
+
+            Check if credential has what it needs to have
+
+            TODO: caching credentials of same credential_id so there wont be duplicates
+            or maybe set will do
+
+            TODO: this checking is very shallow, we need something robust
+
+            """
+
+            if field not in credential["credentialSubject"]:
+                raise HolderError(
+                    f"Specified credential doesn't have the requested attribute\n"
+                    f"Credential === {credential}\n"
+                    f"Provided attribute === {provided_attribute}\n"
+                    f"Requested_field === {requested.get(field)}\n"
+                )
+
             self.logger.debug("CREDENTIAL_LIST ITEM %s", credential)
             credential_list.append(credential)
 

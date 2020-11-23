@@ -36,18 +36,3 @@ async def retrieve_exchange_by_thread(context, connection_id, thread_id, excepti
         raise exception(err.roll_up)
 
     return exchange_record
-
-
-def validate_exchange_state(
-    presentation_exchange, required_state, required_role, exception
-):
-    if presentation_exchange.state != required_state:
-        raise exception(
-            f"""Invalid exchange state, should be {required_state}
-        currently is {presentation_exchange.state}"""
-        )
-    if presentation_exchange.role != required_role:
-        raise exception(
-            f"""Invalid exchange role, should be {required_role}
-        currently is {presentation_exchange.role}"""
-        )
