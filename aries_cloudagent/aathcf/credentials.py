@@ -8,6 +8,39 @@ import json
 from aries_cloudagent.wallet.error import WalletError
 
 
+def validate_schema(SchemaClass, schema: dict, exception=None, log=print):
+    """
+    Use Marshmallow Schema class to validate a schema in the form of dictionary
+    and also handle fields like @context
+
+    Returns errors if no exception passed
+    or
+    Throws passed in exception
+    """
+    test_schema = schema
+    test_against = SchemaClass()
+    # if isinstance(test_schema, OrderedDict):
+    #     test_schema = dict(test_schema)
+    if test_schema.get("@context") != None and test_schema.get("context") == None:
+        test_schema = schema.copy()
+        test_schema["context"] = test_schema.get("@context")
+        test_schema.pop("@context", "skip errors")
+
+    errors = test_against.validate(test_schema)
+    if errors != {}:
+        log(
+            f"Exception {exception}\n"
+            f"Invalid Schema! errors: {errors}\n"
+            f"schema: {test_schema}\n"
+            f"SchemaClass: {SchemaClass}\n"
+        )
+
+        if exception != None:
+            raise exception(f"Invalid Schema! errors: {errors}")
+        else:
+            return errors
+
+
 def dictionary_to_base64(dictionary):
     dictionary_str = json.dumps(dictionary)
     dictionary_base64 = str_to_b64(dictionary_str, urlsafe=True).encode("utf-8")

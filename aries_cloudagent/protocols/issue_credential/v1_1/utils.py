@@ -63,7 +63,7 @@ async def create_credential(
 
     Args:
         credential_request - dictionary containing "credential_values" and
-        "credential_type"
+        "credential_type", credential_type is optional, it's added to types
         exception - pass in exception if you are using this outside of routes
     """
     credential_type = credential_request.get("credential_type")

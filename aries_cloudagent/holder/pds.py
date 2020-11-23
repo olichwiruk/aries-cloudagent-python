@@ -13,56 +13,24 @@ from aries_cloudagent.wallet.base import BaseWallet
 from ..messaging.valid import UUIDFour, IndyISO8601DateTime, JSONWebToken
 from aries_cloudagent.aathcf.credentials import (
     CredentialSchema,
-    PresentationSchema,
-    PresentationRequestedAttributesSchema,
     PresentationRequestSchema,
+    PresentationRequestedAttributesSchema,
     PresentationRequestedCredentialsSchema,
     PresentationSchema,
-    verify_proof,
+    PresentationSchema,
     create_proof,
+    validate_schema,
+    verify_proof,
 )
 import json
 from collections import OrderedDict
 from aries_cloudagent.storage.record import StorageRecord
 from aries_cloudagent.storage.indy import IndyStorage
 
-
-def validate_schema(SchemaClass, schema: dict, exception=None):
-    """
-    Use Marshmallow Schema class to validate a schema in the form of dictionary
-    and also handle fields like @context
-
-    Returns errors if no exception passed
-    or
-    Throws passed in exception
-    """
-    test_schema = schema
-    test_against = SchemaClass()
-    # if isinstance(test_schema, OrderedDict):
-    #     test_schema = dict(test_schema)
-    if test_schema.get("@context") != None and test_schema.get("context") == None:
-        test_schema = schema.copy()
-        test_schema["context"] = test_schema.get("@context")
-        test_schema.pop("@context", "skip errors")
-
-    errors = test_against.validate(test_schema)
-    if errors != {}:
-        logging.getLogger(__name__).error(
-            f"""Invalid Schema! errors: {errors} 
-            schema: {test_schema}
-            SchemaClass: {SchemaClass}"""
-        )
-
-        if exception != None:
-            raise exception(f"""Invalid Schema! errors: {errors}""")
-        else:
-            return errors
-
-
 # TODO: Better error handling
 class PDSHolder(BaseHolder):
     def __init__(self, wallet, storage):
-        self.log = logging.getLogger(__name__).debug
+        self.logger = logging.getLogger(__name__)
         self.wallet = wallet
         self.storage = storage
 
@@ -131,9 +99,17 @@ class PDSHolder(BaseHolder):
             rev_states: Indy format revocation states JSON
         """
 
-        validate_schema(PresentationRequestSchema, presentation_request, HolderError)
         validate_schema(
-            PresentationRequestedCredentialsSchema, requested_credentials, HolderError
+            PresentationRequestSchema,
+            presentation_request,
+            HolderError,
+            self.logger.error,
+        )
+        validate_schema(
+            PresentationRequestedCredentialsSchema,
+            requested_credentials,
+            HolderError,
+            self.logger.error,
         )
 
         requested = presentation_request.get("requested_attributes")
@@ -167,7 +143,7 @@ class PDSHolder(BaseHolder):
                     f"credential_id {cred_id} for field {field} is invalid"
                 )
             credential = json.loads(credential, object_pairs_hook=OrderedDict)
-            self.log("CREDENTIAL_LIST ITEM %s", credential)
+            self.logger.debug("CREDENTIAL_LIST ITEM %s", credential)
             credential_list.append(credential)
 
         # Create type list
@@ -189,7 +165,9 @@ class PDSHolder(BaseHolder):
         proof = await create_proof(self.wallet, presentation, HolderError)
         presentation.update({"proof": proof})
 
-        validate_schema(PresentationSchema, presentation, HolderError)
+        validate_schema(
+            PresentationSchema, presentation, HolderError, self.logger.error
+        )
 
         return json.dumps(presentation)
 
@@ -236,12 +214,16 @@ class PDSHolder(BaseHolder):
             the ID of the stored credential
 
         """
-        self.log("store_credential invoked credential_data %s", credential_data)
+        self.logger.debug(
+            "store_credential invoked credential_data %s", credential_data
+        )
 
         context = credential_data.get("@context")
         if context != None:
             credential_data["context"] = context
-        errors = validate_schema(CredentialSchema, credential_data, HolderError)
+        errors = validate_schema(
+            CredentialSchema, credential_data, HolderError, self.logger.error
+        )
 
         if await verify_proof(self.wallet, credential_data) == False:
             raise HolderError("Proof is incorrect, could not verify")
@@ -276,7 +258,7 @@ class PDSHolder(BaseHolder):
             cred = {"id": i.id, "credential": i.value}
             credentials.append(cred)
 
-        self.log("Credentials GET CREDENTIALS %s", credentials)
+        self.logger.debug("Credentials GET CREDENTIALS %s", credentials)
 
         return credentials
 

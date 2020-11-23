@@ -18,8 +18,7 @@ from aries_cloudagent.wallet.util import bytes_to_b64
 from ..messaging.util import time_now
 from aries_cloudagent.wallet.error import WalletError
 from ..aathcf.credentials import create_proof
-from aries_cloudagent.holder.pds import validate_schema
-from aries_cloudagent.aathcf.credentials import CredentialSchema
+from aries_cloudagent.aathcf.credentials import CredentialSchema, validate_schema
 from collections import OrderedDict
 
 
@@ -37,10 +36,9 @@ class PDSIssuer(BaseIssuer):
 
         Args:
 
-
         """
         self.wallet: BaseWallet = wallet
-        self.log = logging.getLogger(__name__).info
+        self.logger = logging.getLogger(__name__)
 
     def make_schema_id(
         self, origin_did: str, schema_name: str, schema_version: str
@@ -194,7 +192,13 @@ class PDSIssuer(BaseIssuer):
         # for example URI = https://www.schema.org has a json
         # and that json has VerifiableCredential with all possible fields
         # which we can reach through https://www.schema.org/VerifiableCredential
-        credential_dict["type"] = ["VerifiableCredential", credential_type]
+        credential_dict["type"] = ["VerifiableCredential"]
+        if credential_type != None:
+            credential_dict["type"].append(credential_type)
+
+        if isinstance(credential_type, list) and credential_type != []:
+            credential_dict["type"].extend(credential_type)
+
         credential_dict["issuer"] = my_did
         credential_dict["issuanceDate"] = time_now()
         credential_dict["credentialSubject"] = credential_values
@@ -209,7 +213,9 @@ class PDSIssuer(BaseIssuer):
         credential_dict["proof"] = await create_proof(
             self.wallet, credential_dict, IssuerError
         )
-        validate_schema(CredentialSchema, credential_dict, IssuerError)
+        validate_schema(
+            CredentialSchema, credential_dict, IssuerError, self.logger.error
+        )
 
         return json.dumps(credential_dict), None
 

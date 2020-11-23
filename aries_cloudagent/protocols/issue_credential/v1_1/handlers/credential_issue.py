@@ -32,33 +32,26 @@ class CredentialIssueHandler(BaseHandler):
             )
         except StorageNotFoundError:
             raise HandlerException(
-                """Couldn't retrieve ExchangeRecord for this CredentialIssue 
-                as a result, credential issue was not handled"""
+                "Couldn't retrieve ExchangeRecord for this CredentialIssue"
+                "as a result, credential issue was not handled"
             )
         except StorageError as err:
             raise HandlerException(err.roll_up)
 
         credential_message = context.message
         requested_credential = exchange_record.credential_request
-        issued_credential = json.loads(credential_message.credential, object_pairs_hook=OrderedDict)
-
-        if requested_credential.get("credential_type") not in issued_credential.get(
-            "type"
-        ):
-            raise HandlerException(
-                f"""Requested Credential TYPE differs from Issued Credential,
-                RequestedCredential: {requested_credential},
-                IssuedCredential: {issued_credential}"""
-            )
+        issued_credential = json.loads(
+            credential_message.credential, object_pairs_hook=OrderedDict
+        )
 
         for key in requested_credential.get("credential_values"):
             if issued_credential.get("credentialSubject").get(
                 key
             ) != requested_credential.get("credential_values").get(key):
                 raise HandlerException(
-                    f"""Requested Credential VALUES differ from Issued Credential,
-                    RequestedCredential: {requested_credential},
-                    IssuedCredential: {issued_credential}"""
+                    f"Requested Credential VALUES differ from Issued Credential"
+                    f"RequestedCredential: {requested_credential}"
+                    f"IssuedCredential: {issued_credential}"
                 )
 
         holder: BaseHolder = await context.inject(BaseHolder)

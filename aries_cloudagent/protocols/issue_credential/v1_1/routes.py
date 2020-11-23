@@ -22,7 +22,6 @@ LOG = logging.getLogger(__name__).info
 
 class RequestCredentialSchema(OpenAPISchema):
     credential_values = fields.Dict()
-    credential_type = fields.Str(required=True)
     connection_id = fields.Str(required=True)
 
 
@@ -68,13 +67,11 @@ async def request_credential(request: web.BaseRequest):
     outbound_handler = request.app["outbound_message_router"]
 
     body = await request.json()
-    credential_type = body.get("credential_type")
     credential_values = body.get("credential_values")
     connection_id = body.get("connection_id")
     connection_record = await retrieve_connection(context, connection_id)
 
     request = {
-        "credential_type": credential_type,
         "credential_values": credential_values,
     }
     issue = CredentialRequest(credential=request)

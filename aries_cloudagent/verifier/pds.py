@@ -4,8 +4,8 @@ from .base import BaseVerifier
 from aries_cloudagent.aathcf.credentials import (
     PresentationRequestSchema,
     PresentationSchema,
+    validate_schema,
 )
-from ..holder.pds import validate_schema
 from ..aathcf.credentials import verify_proof
 import logging
 
@@ -42,8 +42,10 @@ class PDSVerifier(BaseVerifier):
         presentation_request {presentation_request}
         presentation         {presentation}"""
         )
-        errors1 = validate_schema(PresentationRequestSchema, presentation_request)
-        errors2 = validate_schema(PresentationSchema, presentation)
+        errors1 = validate_schema(
+            PresentationRequestSchema, presentation_request, self.logger.error
+        )
+        errors2 = validate_schema(PresentationSchema, presentation, self.logger.error)
         if errors1 or errors2:
             self.logger.warning(
                 f"""validate_schema errors: 
