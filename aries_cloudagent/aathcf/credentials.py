@@ -154,8 +154,8 @@ class PresentationRequestedAttributesSchema(Schema):
 
 
 class PresentationRequestSchema(Schema):
-    context = fields.List(fields.Str(required=True), required=True)
-    type = fields.List(fields.Str(required=True), required=True)
+    context = fields.List(fields.Str(required=False), required=False)
+    type = fields.List(fields.Str(required=False), required=False)
     nonce = fields.Str(required=True)
     # TODO When I add more of these attributes
     # remember to change requiered to False

@@ -115,6 +115,13 @@ class PDSHolder(BaseHolder):
         requested = presentation_request.get("requested_attributes")
         provided = requested_credentials.get("requested_attributes")
 
+        """
+
+        Check for missing fields in "requested_attributes
+            what that means is throw error if holder didn't provide
+            enough credentials
+
+        """
         # Check for missing fields
         # TODO: Should I be checking for missing fields?
         # maybe its fine to not provide all info
@@ -129,7 +136,12 @@ class PDSHolder(BaseHolder):
         if missing_fields == True:
             raise HolderError("Some of the requested fields are missing!" + provided)
 
-        # Retrieve specified credentials
+        """
+
+        Retrieve credentials which were provided by the user
+
+        """
+
         # TODO Add restrictions checking
         # TODO Change to credential_id
         credential_list = []
@@ -146,20 +158,44 @@ class PDSHolder(BaseHolder):
             self.logger.debug("CREDENTIAL_LIST ITEM %s", credential)
             credential_list.append(credential)
 
-        # Create type list
-        request_type = ["VerifiablePresentation"]
-        for i in presentation_request.get("type"):
-            request_type.append(i)
+        """
 
-        remove_duplicates = set(request_type)
-        request_type = list(remove_duplicates)
+        Process Context and type so that they are non repeating and
+        requested context, type are more important / have higher indexes
 
-        presentation = OrderedDict()
-        presentation["context"] = presentation_request.get(
+        """
+
+        # TYPE
+        request_type = presentation_request.get("type")
+        processed_type = ["VerifiablePresentation"]
+        if isinstance(request_type, list) and request_type != []:
+            processed_type.extend(request_type)
+            remove_duplicates = set(processed_type)
+            processed_type = list(remove_duplicates)
+
+        # CONTEXT
+        request_context = presentation_request.get(
             "@context", presentation_request.get("context")
         )
+        processed_context = [
+            "https://www.w3.org/2018/credentials/v1",
+            "https://www.w3.org/2018/credentials/examples/v1",
+        ]
+        if isinstance(request_context, list) and request_context != []:
+            processed_context.extend(request_context)
+            remove_duplicates = set(processed_context)
+            processed_context = list(remove_duplicates)
+
+        """
+
+        Create the presentation
+
+        """
+
+        presentation = OrderedDict()
+        presentation["context"] = processed_context
         presentation["id"] = uuid.uuid4().urn
-        presentation["type"] = request_type
+        presentation["type"] = processed_type
         presentation["verifiableCredential"] = credential_list
 
         proof = await create_proof(self.wallet, presentation, HolderError)

@@ -49,8 +49,6 @@ class PresentationRequestAPISchema(OpenAPISchema):
         required=True,
         many=True,
     )
-    context = fields.List(fields.Str(required=True), required=True)
-    type = fields.List(fields.Str(required=True), required=True)
     connection_id = fields.Str(required=True)
 
 
@@ -89,8 +87,6 @@ async def request_presentation_api(request: web.BaseRequest):
     requested_attributes = body.get("requested_attributes")
 
     presentation_request = {
-        "type": type,
-        "context": context_field,
         "nonce": str(uuid.uuid4()),
         "requested_attributes": requested_attributes,
     }
