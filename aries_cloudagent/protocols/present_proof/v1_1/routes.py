@@ -31,7 +31,10 @@ from ....utils.tracing import trace_event, get_timer, AdminAPIMessageTracingSche
 from ....wallet.error import WalletNotFoundError
 from ...problem_report.v1_0 import internal_error
 from aries_cloudagent.protocols.issue_credential.v1_1.utils import retrieve_connection
-from aries_cloudagent.aathcf.credentials import PresentationRequestedAttributesSchema, raise_exception_invalid_state
+from aries_cloudagent.aathcf.credentials import (
+    raise_exception_invalid_state,
+    PresentationRequestSchema,
+)
 from .messages.request_proof import RequestProof
 from .messages.present_proof import PresentProof
 from .models.utils import retrieve_exchange
@@ -43,52 +46,41 @@ LOG = logging.getLogger(__name__).info
 
 
 class PresentationRequestAPISchema(OpenAPISchema):
-    requested_attributes = fields.Dict(
-        keys=fields.Str(),
-        values=fields.Nested(PresentationRequestedAttributesSchema),
-        required=True,
-        many=True,
-    )
     connection_id = fields.Str(required=True)
+    requested_attributes = fields.List(fields.Str(required=True), required=True)
+    issuer_did = fields.Str(required=True)
+    schema_base_dri = fields.Str(required=True)
 
 
 class PresentProofAPISchema(OpenAPISchema):
     exchange_record_id = fields.Str(required=True)
-    requested_credentials = fields.Dict(
-        keys=fields.Str(),
-        values=fields.Dict(),
-        required=True,
-        many=True,
-    )
+    credential_id = fields.Str(required=True)
+
+
+class RetrieveExchangeQuerySchema(OpenAPISchema):
+    connection_id = fields.Str(required=False)
+    thread_id = fields.Str(required=False)
+    initiator = fields.Str(required=False)
+    role = fields.Str(required=False)
+    state = fields.Str(required=False)
 
 
 @docs(tags=["present-proof"], summary="Sends a proof presentation")
 @request_schema(PresentationRequestAPISchema())
 async def request_presentation_api(request: web.BaseRequest):
-    """
-    Request handler for sending a presentation.
-
-    Args:
-        request: aiohttp request object
-
-    Returns:
-        The presentation exchange details
-
-    """
+    """Request handler for sending a presentation."""
     context = request.app["request_context"]
     outbound_handler = request.app["outbound_message_router"]
     body = await request.json()
 
     connection_id = body.get("connection_id")
-    connection_record = await retrieve_connection(context, connection_id)
-
-    type = body.get("type")
-    context_field = body.get("context")
-    requested_attributes = body.get("requested_attributes")
+    await retrieve_connection(context, connection_id)  # throw exception if not found
 
     presentation_request = {
         "nonce": str(uuid.uuid4()),
-        "requested_attributes": requested_attributes,
+        "requested_attributes": body.get("requested_attributes"),
+        "issuer_did": body.get("issuer_did"),
+        "schema_base_dri": body.get("schema_base_dri"),
     }
 
     message = RequestProof(presentation_request=presentation_request)
@@ -126,7 +118,7 @@ async def present_proof_api(request: web.BaseRequest):
 
     body = await request.json()
     exchange_record_id = body.get("exchange_record_id")
-    requested_credentials = body.get("requested_credentials")
+    credential_id = body.get("credential_id")
 
     exchange_record = await retrieve_exchange(
         context, exchange_record_id, web.HTTPNotFound
@@ -145,7 +137,7 @@ async def present_proof_api(request: web.BaseRequest):
 
     try:
         holder: BaseHolder = await context.inject(BaseHolder)
-        requested_credentials = {"requested_attributes": requested_credentials}
+        requested_credentials = {"credential_id": credential_id}
         presentation = await holder.create_presentation(
             presentation_request=exchange_record.presentation_request,
             requested_credentials=requested_credentials,
@@ -168,19 +160,10 @@ async def present_proof_api(request: web.BaseRequest):
     return web.json_response("success, proof sent and exchange updated")
 
 
-class RetrieveExchangeQuerySchema(OpenAPISchema):
-    connection_id = fields.Str(required=False)
-    thread_id = fields.Str(required=False)
-    initiator = fields.Str(required=False)
-    role = fields.Str(required=False)
-    state = fields.Str(required=False)
-
-
 @docs(tags=["present-proof"], summary="retrieve exchange record")
 @querystring_schema(RetrieveExchangeQuerySchema())
 async def retrieve_credential_exchange_api(request: web.BaseRequest):
     context = request.app["request_context"]
-    outbound_handler = request.app["outbound_message_router"]
 
     records = await THCFPresentationExchange.query(context, tag_filter=request.query)
 

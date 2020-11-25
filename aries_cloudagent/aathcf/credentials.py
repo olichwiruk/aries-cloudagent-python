@@ -2,9 +2,59 @@ from aries_cloudagent.wallet.util import b64_to_bytes, bytes_to_b64, str_to_b64
 from aries_cloudagent.messaging.util import time_now
 from aries_cloudagent.messaging.valid import IndyISO8601DateTime
 from collections import OrderedDict
+from marshmallow import fields, Schema
 
 import json
+import inspect
 from aries_cloudagent.wallet.error import WalletError
+
+
+def _private_print_line_and_file(indirection_number):
+    """
+    Prints the line and filename.
+
+    If 1 is passed it prints at function call site
+
+    If 2 is passed it prints at callsite of a function
+    which called the function which contained this
+
+    Purpose:
+        When you use VSCode it should jump you to the line from clicking on cmd
+
+    """
+    caller_frame_record = inspect.stack()[indirection_number]
+
+    frame = caller_frame_record[0]
+    info = inspect.getframeinfo(frame)
+    filename = info.filename
+    filename = filename.replace("/home/indy/", "")
+
+    print(f"-------------------------------------------------------------------\n")
+    print(f"FILE: {filename}:{info.lineno}")
+    print(f"FUNCTION: {info.function}\n")
+    print(f"-------------------------------------------------------------------")
+
+
+def assert_type(value, Type):
+    result = isinstance(value, Type)
+    if not result:
+        _private_print_line_and_file(2)
+        print("Value: ", value)
+        assert (
+            0
+        ), f"ERROR: Incorrect type! should be {Type} but is of type {type(value)}"
+
+
+def assert_type_or(value, Type1, Type2):
+    result1 = isinstance(value, Type1)
+    result2 = isinstance(value, Type2)
+    if not result1 and not result2:
+        _private_print_line_and_file(2)
+        print("Value: ", value)
+        assert 0, (
+            f"ERROR: Incorrect type! should be {Type1}"
+            f"or {Type2} but is of type {type(value) }"
+        )
 
 
 def raise_exception_invalid_state(exchange_record, valid_state, valid_role, exception):
@@ -29,9 +79,11 @@ def validate_schema(SchemaClass, schema: dict, exception=None, log=print):
     or
     Throws passed in exception
     """
+    assert_type_or(schema, dict, OrderedDict)
+
     test_schema = schema
     test_against = SchemaClass()
-    if test_schema.get("@context") != None and test_schema.get("context") == None:
+    if test_schema.get("@context") is not None and test_schema.get("context") is None:
         test_schema = schema.copy()
         test_schema["context"] = test_schema.get("@context")
         test_schema.pop("@context", "skip errors")
@@ -45,16 +97,20 @@ def validate_schema(SchemaClass, schema: dict, exception=None, log=print):
             f"SchemaClass: {SchemaClass}\n"
         )
 
-        if exception != None:
+        if exception is not None:
             raise exception(f"Invalid Schema! errors: {errors}")
         else:
             return errors
 
 
-def dictionary_to_base64(dictionary):
+def dictionary_to_base64(dictionary: OrderedDict) -> bytes:
     """Transform a dictionary into base 64."""
+    assert_type(dictionary, dict)
+
     dictionary_str = json.dumps(dictionary)
     dictionary_base64 = str_to_b64(dictionary_str, urlsafe=True).encode("utf-8")
+
+    assert_type(dictionary_base64, bytes)
 
     return dictionary_base64
 
@@ -63,6 +119,8 @@ async def verify_proof(wallet, credential: OrderedDict) -> bool:
     """
     Args: Credential: full schema with proof field
     """
+    assert_type(credential, OrderedDict)
+
     cred_copy = credential.copy()
     proof = cred_copy["proof"]
     proof_signature = b64_to_bytes(proof["jws"], urlsafe=True)
@@ -81,6 +139,7 @@ async def verify_proof(wallet, credential: OrderedDict) -> bool:
         print(err.roll_up)
         result = False
 
+    assert_type(result, bool)
     return result
 
 
@@ -88,8 +147,10 @@ async def create_proof(wallet, credential: OrderedDict, exception) -> OrderedDic
     """
     Creates a proof dict with signature for given dictionary
     """
+    assert_type(credential, OrderedDict)
+
     try:
-        signing_key: KeyInfo = await wallet.create_signing_key()
+        signing_key = await wallet.create_signing_key()
 
         credential_base64 = dictionary_to_base64(credential)
         signature_bytes: bytes = await wallet.sign_message(
@@ -125,6 +186,7 @@ async def create_proof(wallet, credential: OrderedDict, exception) -> OrderedDic
     #     "jws": , SIGNATURE
     # }
 
+    assert_type(proof, OrderedDict)
     return proof
 
 
@@ -139,8 +201,9 @@ class ProofSchema(Schema):
 class PresentationSchema(Schema):
     id = fields.Str(required=False)
     type = fields.List(fields.Str(required=True))
-    proof = fields.List(fields.Nested(ProofSchema()), required=True)
-    verifiableCredential = fields.List(fields.Dict(required=True), required=True)
+    proof = fields.Nested(ProofSchema, required=True)
+    # verifiableCredential = fields.List(fields.Dict(required=True), required=True)
+    verifiableCredential = fields.Dict()
     context = fields.List(fields.Str(required=True), required=True)
 
 
@@ -154,58 +217,15 @@ class CredentialSchema(Schema):
     issuanceDate = fields.Str(required=True)
 
 
-# TODO
-class CredentialRequestSchema(Schema):
-    context = fields.List(fields.Str(required=True), required=True)
-    type = fields.List(fields.Str(required=True), required=True)
-
-
 class PresentationRequestedAttributesSchema(Schema):
     restrictions = fields.List(fields.Dict())
 
 
 class PresentationRequestSchema(Schema):
-    context = fields.List(fields.Str(required=False), required=False)
-    type = fields.List(fields.Str(required=False), required=False)
     nonce = fields.Str(required=True)
-    # TODO When I add more of these attributes
-    # remember to change requiered to False
-    # preferably check if there is at least one attribute
-    # from available types
-    requested_attributes = fields.Dict(
-        keys=fields.Str(),
-        values=fields.Nested(PresentationRequestedAttributesSchema),
-        required=True,
-        many=True,
-    )
-
-
-class PresentationRequestedCredentialsSchema(Schema):
-    """
-    Schema which is used to provide credential_ids for credential_request
-    by the user
-    """
-
-    # TODO When I add more of these attributes
-    # remember to change requiered to False
-    # preferably check if there is at least one attribute
-    # from available types
-    requested_attributes = fields.Dict(
-        keys=fields.Str(),
-        values=fields.Dict(),
-        required=True,
-        many=True,
-    )
-
-
-class PresentationSchema(Schema):
-    context = fields.List(fields.Str(), required=True)
-    id = fields.Str(required=True)
-    type = fields.List(fields.Str(), required=True)
-    verifiableCredential = fields.List(fields.Nested(CredentialSchema), required=True)
-    proof = fields.Nested(ProofSchema, required=True)
-    created_at = fields.Date(required=False)  # TODO I dont want these here I think
-    updated_at = fields.Date(required=False)
+    requested_attributes = fields.List(fields.Str(required=True), required=True)
+    issuer_did = fields.Str(required=True)
+    schema_base_dri = fields.Str(required=True)
 
 
 ## TODO:
@@ -222,7 +242,7 @@ async def create_proof_jwt(wallet, credential):
     JWS:
     https://tools.ietf.org/html/rfc7515
     """
-    signing_key: KeyInfo = await wallet.create_signing_key()
+    signing_key = await wallet.create_signing_key()
     header = {"alg": "EdDSA", "typ": "JWT"}
     payload_fields = {
         "iss": "",  # issuer
@@ -242,7 +262,7 @@ async def create_proof_jwt(wallet, credential):
         * The "iss" value is a case-sensitive string containing a StringOrURI
         value.  Use of this claim is OPTIONAL
         * sub - who jwt is about, subject
-        * aud - audience, receiver of jwt 
+        * aud - audience, receiver of jwt
         * The "nbf" (not before) claim identifies the time before which the JWT
         MUST NOT be accepted for processing.
         * The "jti" (JWT ID) claim provides a unique identifier for the JWT.

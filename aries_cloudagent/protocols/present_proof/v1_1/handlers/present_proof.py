@@ -27,6 +27,7 @@ class PresentProofHandler(BaseHandler):
     async def handle(self, context: RequestContext, responder: BaseResponder):
         debug_handler(self._logger.info, context, PresentProof)
         verifier: BaseVerifier = await context.inject(BaseVerifier)
+
         presentation = json.loads(
             context.message.credential_presentation, object_pairs_hook=OrderedDict
         )
@@ -53,9 +54,10 @@ class PresentProofHandler(BaseHandler):
             rev_reg_defs={},
             rev_reg_entries={},
         )
+
         if not isVerified:
             raise HandlerException(
-                f"""Verifier couldn't verify the presentation! {isVerified}"""
+                f"Verifier couldn't verify the presentation! {isVerified}"
             )
 
         exchange_record.presentation = presentation

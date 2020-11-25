@@ -18,12 +18,16 @@ from aries_cloudagent.wallet.util import bytes_to_b64
 from ..messaging.util import time_now
 from aries_cloudagent.wallet.error import WalletError
 from ..aathcf.credentials import create_proof
-from aries_cloudagent.aathcf.credentials import CredentialSchema, validate_schema
+from aries_cloudagent.aathcf.credentials import (
+    CredentialSchema,
+    assert_type,
+    validate_schema,
+)
 from collections import OrderedDict
 
 
 def raise_exception_on_null(value, value_name, exception=IssuerError):
-    if value == None or value == {}:
+    if value is None or value is {}:
         raise exception(
             f"""{value_name} is empty, it needs to be filled out! currently it looks like this {value}"""
         )

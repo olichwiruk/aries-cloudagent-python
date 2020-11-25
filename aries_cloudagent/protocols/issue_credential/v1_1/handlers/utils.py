@@ -17,6 +17,4 @@ def debug_handler(log, context, MessageClass):
         context.message.serialize(as_string=True),
     )
     if not context.connection_ready:
-        raise HandlerException(
-            "No connection established for " + MessageClass.__name__
-        )
+        raise HandlerException("No connection established for " + MessageClass.__name__)

@@ -7,6 +7,7 @@ from aiohttp_apispec import (
     request_schema,
     response_schema,
 )
+from aiohttp import web
 from marshmallow import fields
 import logging
 from ....messaging.models.base import OpenAPISchema
@@ -14,7 +15,12 @@ from .messages.credential_issue import CredentialIssue
 from aries_cloudagent.protocols.issue_credential.v1_1.messages.credential_request import (
     CredentialRequest,
 )
-from .utils import *
+from .utils import (
+    CredentialExchangeRecord,
+    retrieve_credential_exchange,
+    retrieve_connection,
+    create_credential,
+)
 from aries_cloudagent.aathcf.credentials import raise_exception_invalid_state
 
 
@@ -78,10 +84,7 @@ async def request_credential(request: web.BaseRequest):
     connection_id = body.get("connection_id")
     connection_record = await retrieve_connection(context, connection_id)
 
-    request = {
-        "credential_values": credential_values,
-    }
-    issue = CredentialRequest(credential=request)
+    issue = CredentialRequest(credential={"credential_values": credential_values})
     await outbound_handler(issue, connection_id=connection_record.connection_id)
 
     exchange = CredentialExchangeRecord(
@@ -90,7 +93,7 @@ async def request_credential(request: web.BaseRequest):
         initiator=CredentialExchangeRecord.INITIATOR_SELF,
         role=CredentialExchangeRecord.ROLE_HOLDER,
         state=CredentialExchangeRecord.STATE_REQUEST_SENT,
-        credential_request=request,
+        credential_request={"credential_values": credential_values},
     )
 
     exchange_id = await exchange.save(
@@ -104,7 +107,6 @@ async def request_credential(request: web.BaseRequest):
 @querystring_schema(RetrieveCredentialExchangeQuerySchema())
 async def retrieve_credential_exchange_endpoint(request: web.BaseRequest):
     context = request.app["request_context"]
-    outbound_handler = request.app["outbound_message_router"]
 
     records = await CredentialExchangeRecord.query(context, tag_filter=request.query)
 
@@ -120,7 +122,7 @@ async def register(app: web.Application):
 
     app.add_routes(
         [
-            web.post("/issue-credential/send", issue_credential),
+            web.post("/issue-credential/issue", issue_credential),
             web.post("/issue-credential/request", request_credential),
             web.get(
                 "/issue-credential/exchange/record",

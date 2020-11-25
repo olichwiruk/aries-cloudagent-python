@@ -2,8 +2,6 @@ from typing import Sequence
 from marshmallow import fields
 from .....messaging.agent_message import AgentMessage, AgentMessageSchema
 from ..message_types import PRESENT_PROOF, PROTOCOL_PACKAGE
-from aries_cloudagent.aathcf.credentials import PresentationSchema
-import uuid
 
 HANDLER_CLASS = f"{PROTOCOL_PACKAGE}.handlers.present_proof.PresentProofHandler"
 
@@ -35,8 +33,3 @@ class PresentProofSchema(AgentMessageSchema):
         model_class = PresentProof
 
     credential_presentation = fields.Str(required=True)
-    # credential_presentation = fields.Nested(
-    #     PresentationSchema,
-    #     required=False,
-    #     description="Present proof / credential presentation",
-    # )

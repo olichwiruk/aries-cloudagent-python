@@ -1,31 +1,23 @@
+import json
 import logging
 import uuid
-from marshmallow import Schema
-from marshmallow.utils import INCLUDE
+from collections import OrderedDict
 from typing import Tuple, Union
-from ..core.error import BaseError
-from .base import *
-from .models.credential import *
-from ..storage.base import BaseStorage, BaseStorageRecordSearch
-from ..storage.error import StorageNotFoundError, StorageError
-from ..config.injection_context import InjectionContext
-from aries_cloudagent.wallet.base import BaseWallet
-from ..messaging.valid import UUIDFour, IndyISO8601DateTime, JSONWebToken
+
 from aries_cloudagent.aathcf.credentials import (
     CredentialSchema,
     PresentationRequestSchema,
-    PresentationRequestedAttributesSchema,
-    PresentationRequestedCredentialsSchema,
-    PresentationSchema,
     PresentationSchema,
     create_proof,
     validate_schema,
     verify_proof,
 )
-import json
-from collections import OrderedDict
 from aries_cloudagent.storage.record import StorageRecord
-from aries_cloudagent.storage.indy import IndyStorage
+
+from ..storage.base import BaseStorageRecordSearch
+from ..storage.error import StorageError
+from .base import BaseHolder, HolderError
+
 
 # TODO: Better error handling
 class PDSHolder(BaseHolder):
@@ -105,36 +97,12 @@ class PDSHolder(BaseHolder):
             HolderError,
             self.logger.error,
         )
-        validate_schema(
-            PresentationRequestedCredentialsSchema,
-            requested_credentials,
-            HolderError,
-            self.logger.error,
-        )
 
         requested = presentation_request.get("requested_attributes")
-        provided = requested_credentials.get("requested_attributes")
+        credential_id = requested_credentials.get("credential_id")
 
-        """
-
-        Check for missing fields in "requested_attributes
-            what that means is throw error if holder didn't provide
-            enough credentials
-
-        """
-        # Check for missing fields
-        # TODO: Should I be checking for missing fields?
-        # maybe its fine to not provide all info
-        # that probably should be handled in negotitation phase though?
-        missing_fields = False
-        for field in requested:
-            provided_attribute = provided.get(field)
-            if provided_attribute == None:
-                missing_fields = True
-                provided[field] = "Missing field"
-
-        if missing_fields == True:
-            raise HolderError("Some of the requested fields are missing!" + provided)
+        if credential_id is None:
+            raise HolderError("Provided credentials are empty " + requested_credentials)
 
         """
 
@@ -142,41 +110,30 @@ class PDSHolder(BaseHolder):
 
         """
 
-        # TODO Add restrictions checking
-        # TODO Change to credential_id
-        credential_list = []
+        try:
+            credential = await self.get_credential(credential_id)
+        except HolderError as err:
+            raise HolderError(f"credential_id {credential_id} is invalid {err.roll_up}")
+        credential = json.loads(credential, object_pairs_hook=OrderedDict)
+
+        """
+
+        Check if credential has what it needs to have
+
+        TODO: caching credentials of same credential_id so there wont be duplicates
+        or maybe set will do
+
+        TODO: this checking is very shallow, we need something robust
+
+        """
         for field in requested:
-            provided_attribute = provided.get(field)
-            cred_id = provided_attribute.get("cred_id")
-            try:
-                credential = await self.get_credential(cred_id)
-            except HolderError as err:
-                raise HolderError(
-                    f"credential_id {cred_id} for field {field} is invalid"
-                )
-            credential = json.loads(credential, object_pairs_hook=OrderedDict)
-
-            """
-
-            Check if credential has what it needs to have
-
-            TODO: caching credentials of same credential_id so there wont be duplicates
-            or maybe set will do
-
-            TODO: this checking is very shallow, we need something robust
-
-            """
-
             if field not in credential["credentialSubject"]:
                 raise HolderError(
                     f"Specified credential doesn't have the requested attribute\n"
                     f"Credential === {credential}\n"
-                    f"Provided attribute === {provided_attribute}\n"
-                    f"Requested_field === {requested.get(field)}\n"
+                    f"requested attributes === {requested}\n"
+                    f"Requested_field === {field}\n"
                 )
-
-            self.logger.debug("CREDENTIAL_LIST ITEM %s", credential)
-            credential_list.append(credential)
 
         """
 
@@ -216,7 +173,7 @@ class PDSHolder(BaseHolder):
         presentation["context"] = processed_context
         presentation["id"] = uuid.uuid4().urn
         presentation["type"] = processed_type
-        presentation["verifiableCredential"] = credential_list
+        presentation["verifiableCredential"] = {credential_id: credential}
 
         proof = await create_proof(self.wallet, presentation, HolderError)
         presentation.update({"proof": proof})
@@ -275,13 +232,13 @@ class PDSHolder(BaseHolder):
         )
 
         context = credential_data.get("@context")
-        if context != None:
+        if context is not None:
             credential_data["context"] = context
-        errors = validate_schema(
+        validate_schema(
             CredentialSchema, credential_data, HolderError, self.logger.error
         )
 
-        if await verify_proof(self.wallet, credential_data) == False:
+        if await verify_proof(self.wallet, credential_data) is False:
             raise HolderError("Proof is incorrect, could not verify")
 
         try:
