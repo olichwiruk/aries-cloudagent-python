@@ -1,12 +1,9 @@
 """A credential content message."""
 
-from typing import Sequence
-
 from marshmallow import fields
 
 from .....messaging.agent_message import AgentMessage, AgentMessageSchema
 from ..message_types import CREDENTIAL_ISSUE, PROTOCOL_PACKAGE
-from aries_cloudagent.aathcf.credentials import CredentialSchema
 
 HANDLER_CLASS = f"{PROTOCOL_PACKAGE}.handlers.credential_issue.CredentialIssueHandler"
 

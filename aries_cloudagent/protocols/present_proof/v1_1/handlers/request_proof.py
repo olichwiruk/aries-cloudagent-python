@@ -5,7 +5,7 @@ from .....messaging.base_handler import (
     RequestContext,
 )
 from ..messages.request_proof import RequestProof
-from ....issue_credential.v1_1.handlers.utils import debug_handler
+from aries_cloudagent.aathcf.utils import debug_handler
 from aries_cloudagent.protocols.present_proof.v1_1.models.presentation_exchange import (
     THCFPresentationExchange,
 )

@@ -9,7 +9,7 @@ import inspect
 from aries_cloudagent.wallet.error import WalletError
 
 
-def _private_print_line_and_file(indirection_number):
+def print_line_and_file_at_callsite(indirection_number):
     """
     Prints the line and filename.
 
@@ -38,7 +38,7 @@ def _private_print_line_and_file(indirection_number):
 def assert_type(value, Type):
     result = isinstance(value, Type)
     if not result:
-        _private_print_line_and_file(2)
+        print_line_and_file_at_callsite(2)
         print("Value: ", value)
         assert (
             0
@@ -49,7 +49,7 @@ def assert_type_or(value, Type1, Type2):
     result1 = isinstance(value, Type1)
     result2 = isinstance(value, Type2)
     if not result1 and not result2:
-        _private_print_line_and_file(2)
+        print_line_and_file_at_callsite(2)
         print("Value: ", value)
         assert 0, (
             f"ERROR: Incorrect type! should be {Type1}"
@@ -222,13 +222,12 @@ class PresentationRequestedAttributesSchema(Schema):
 
 
 class PresentationRequestSchema(Schema):
-    nonce = fields.Str(required=True)
     requested_attributes = fields.List(fields.Str(required=True), required=True)
     issuer_did = fields.Str(required=True)
     schema_base_dri = fields.Str(required=True)
 
 
-## TODO:
+# TODO: JWT
 async def create_proof_jwt(wallet, credential):
     def dictionary_to_base64_jwt(dictionary) -> bytes:
         dictionary_str = json.dumps(dictionary)

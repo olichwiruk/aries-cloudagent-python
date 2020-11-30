@@ -13,10 +13,9 @@ import json
 from aries_cloudagent.protocols.issue_credential.v1_1.models.credential_exchange import (
     CredentialExchangeRecord,
 )
-from .utils import debug_handler
+from aries_cloudagent.aathcf.utils import debug_handler
 
 
-# TODO Error handling
 class CredentialRequestHandler(BaseHandler):
     """
     Message handler logic for incoming credential requests.

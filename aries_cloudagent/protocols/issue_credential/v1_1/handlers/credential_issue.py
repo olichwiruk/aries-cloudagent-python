@@ -6,7 +6,7 @@ from .....messaging.base_handler import (
 )
 from ..messages.credential_issue import CredentialIssue
 from aries_cloudagent.holder.base import BaseHolder, HolderError
-from .utils import debug_handler
+from aries_cloudagent.aathcf.utils import debug_handler
 from aries_cloudagent.protocols.issue_credential.v1_1.models.credential_exchange import (
     CredentialExchangeRecord,
 )
@@ -80,6 +80,6 @@ class CredentialIssueHandler(BaseHandler):
 
         self._logger.info("Stored Credential ID %s", credential_id)
         await responder.send_webhook(
-            "TODOInfocredential_issue_received",
+            "issue-credential/credential-received",
             {"credential_id": credential_id, "connection_id": responder.connection_id},
         )

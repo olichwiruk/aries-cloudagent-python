@@ -5,7 +5,6 @@ from aries_cloudagent.protocols.issue_credential.v1_1.models.credential_exchange
     CredentialExchangeRecord,
 )
 from aries_cloudagent.issuer.base import BaseIssuer, IssuerError
-import json
 
 
 async def retrieve_connection(context, connection_id):
@@ -84,6 +83,3 @@ async def create_credential(
         raise exception(reason=f"""create_credential: {err.roll_up}""")
 
     return credential
-
-
-

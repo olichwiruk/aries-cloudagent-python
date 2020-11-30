@@ -160,13 +160,9 @@ class PDSIssuer(BaseIssuer):
 
         """
         credential_type = schema.get("credential_type")
-        connection_record: ConnectionRecord = credential_request.get(
-            "connection_record"
-        )
+        connection_record = credential_request.get("connection_record")
+        assert_type(connection_record, ConnectionRecord)
 
-        assert isinstance(
-            connection_record, ConnectionRecord
-        ), "credentials_request needs to have connection_record of type ConnectionRecord"
         my_did = connection_record.my_did
         their_did = connection_record.their_did
         raise_exception_on_null(my_did, "connection.my_did")

@@ -10,35 +10,18 @@ from aiohttp_apispec import (
     request_schema,
     response_schema,
 )
-from marshmallow import fields, validate, validates_schema
-from marshmallow.exceptions import ValidationError
-
+from marshmallow import fields
 from ....connections.models.connection_record import ConnectionRecord
 from ....holder.base import BaseHolder, HolderError
-from ....indy.util import generate_pr_nonce
 from .models.presentation_exchange import THCFPresentationExchange
-from ....messaging.models.base import BaseModelError
 from ....messaging.models.openapi import OpenAPISchema
-from ....messaging.valid import (
-    INT_EPOCH,
-    NATURAL_NUM,
-    UUIDFour,
-    UUID4,
-    WHOLE_NUM,
-)
-from ....storage.error import StorageError, StorageNotFoundError
-from ....utils.tracing import trace_event, get_timer, AdminAPIMessageTracingSchema
-from ....wallet.error import WalletNotFoundError
-from ...problem_report.v1_0 import internal_error
 from aries_cloudagent.protocols.issue_credential.v1_1.utils import retrieve_connection
 from aries_cloudagent.aathcf.credentials import (
     raise_exception_invalid_state,
-    PresentationRequestSchema,
 )
 from .messages.request_proof import RequestProof
 from .messages.present_proof import PresentProof
 from .models.utils import retrieve_exchange
-import uuid
 import logging
 import collections
 
@@ -77,7 +60,6 @@ async def request_presentation_api(request: web.BaseRequest):
     await retrieve_connection(context, connection_id)  # throw exception if not found
 
     presentation_request = {
-        "nonce": str(uuid.uuid4()),
         "requested_attributes": body.get("requested_attributes"),
         "issuer_did": body.get("issuer_did"),
         "schema_base_dri": body.get("schema_base_dri"),

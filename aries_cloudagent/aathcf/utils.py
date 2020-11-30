@@ -1,4 +1,4 @@
-from .....messaging.base_handler import HandlerException
+from aries_cloudagent.messaging.base_handler import HandlerException
 
 
 def debug_handler(log, context, MessageClass):

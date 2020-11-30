@@ -4,7 +4,7 @@ from .....messaging.base_handler import (
     HandlerException,
     RequestContext,
 )
-from ....issue_credential.v1_1.handlers.utils import debug_handler
+from aries_cloudagent.aathcf.utils import debug_handler
 from aries_cloudagent.protocols.present_proof.v1_1.models.presentation_exchange import (
     THCFPresentationExchange,
 )
@@ -46,7 +46,7 @@ class PresentProofHandler(BaseHandler):
             HandlerException,
         )
 
-        isVerified = await verifier.verify_presentation(
+        is_verified = await verifier.verify_presentation(
             presentation_request=exchange_record.presentation_request,
             presentation=presentation,
             schemas={},
@@ -55,9 +55,9 @@ class PresentProofHandler(BaseHandler):
             rev_reg_entries={},
         )
 
-        if not isVerified:
+        if not is_verified:
             raise HandlerException(
-                f"Verifier couldn't verify the presentation! {isVerified}"
+                f"Verifier couldn't verify the presentation! {is_verified}"
             )
 
         exchange_record.presentation = presentation
