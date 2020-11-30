@@ -48,7 +48,7 @@ class DataVault(BasePersonalDataStorage):
 
         return response_text
 
-    async def save(self, record: str) -> str:
+    async def save(self, record: str, metadata: str) -> str:
         data = FormData()
         data.add_field("file", record, filename="data", content_type="application/json")
         url = f"{self.settings['host']}{API_ENDPOINT}"
