@@ -81,7 +81,6 @@ class DefaultContextBuilder(ContextBuilder):
             ),
         )
 
-        # THCF
         context.injector.bind_provider(
             BasePersonalDataStorage,
             PersonalDataStorageProvider(),
@@ -105,7 +104,7 @@ class DefaultContextBuilder(ContextBuilder):
             BaseIssuer,
             StatsProvider(
                 ClassProvider(
-                    "aries_cloudagent.issuer.indy.IndyIssuer",
+                    "aries_cloudagent.issuer.pds.PDSIssuer",
                     ClassProvider.Inject(BaseWallet),
                 ),
                 ("create_credential_offer", "create_credential"),
@@ -115,8 +114,9 @@ class DefaultContextBuilder(ContextBuilder):
             BaseHolder,
             StatsProvider(
                 ClassProvider(
-                    "aries_cloudagent.holder.indy.IndyHolder",
+                    "aries_cloudagent.holder.pds.PDSHolder",
                     ClassProvider.Inject(BaseWallet),
+                    ClassProvider.Inject(BaseStorage),
                 ),
                 ("get_credential", "store_credential", "create_credential_request"),
             ),
@@ -124,8 +124,8 @@ class DefaultContextBuilder(ContextBuilder):
         context.injector.bind_provider(
             BaseVerifier,
             ClassProvider(
-                "aries_cloudagent.verifier.indy.IndyVerifier",
-                ClassProvider.Inject(BaseLedger),
+                "aries_cloudagent.verifier.pds.PDSVerifier",
+                ClassProvider.Inject(BaseWallet),
             ),
         )
         context.injector.bind_provider(

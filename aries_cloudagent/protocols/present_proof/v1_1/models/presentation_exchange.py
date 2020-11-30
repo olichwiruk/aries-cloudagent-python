@@ -6,20 +6,21 @@ from marshmallow import fields, validate
 
 from .....messaging.models.base_record import BaseExchangeRecord, BaseExchangeSchema
 from .....messaging.valid import UUIDFour
+from aries_cloudagent.aathcf.credentials import PresentationRequestSchema
+from aries_cloudagent.config.injection_context import InjectionContext
 
 
-class V10PresentationExchange(BaseExchangeRecord):
+class THCFPresentationExchange(BaseExchangeRecord):
     """Represents an Aries#0037 v1.0 presentation exchange."""
 
     class Meta:
-        """V10PresentationExchange metadata."""
+        """THCFPresentationExchange metadata."""
 
-        schema_class = "V10PresentationExchangeSchema"
+        schema_class = "THCFPresentationExchangeSchema"
 
-    RECORD_TYPE = "presentation_exchange_v10"
+    RECORD_TYPE = "presentation_exchange_thcf"
     RECORD_ID_NAME = "presentation_exchange_id"
     WEBHOOK_TOPIC = "present_proof"
-    TAG_NAMES = {"thread_id"}
 
     INITIATOR_SELF = "self"
     INITIATOR_EXTERNAL = "external"
@@ -29,7 +30,7 @@ class V10PresentationExchange(BaseExchangeRecord):
 
     STATE_PROPOSAL_SENT = "proposal_sent"
     STATE_PROPOSAL_RECEIVED = "proposal_received"
-    STATE_REQUEST_SENT = "reqwuest_sent"
+    STATE_REQUEST_SENT = "request_sent"
     STATE_REQUEST_RECEIVED = "request_received"
     STATE_PRESENTATION_SENT = "presentation_sent"
     STATE_PRESENTATION_RECEIVED = "presentation_received"
@@ -45,15 +46,14 @@ class V10PresentationExchange(BaseExchangeRecord):
         initiator: str = None,
         role: str = None,
         state: str = None,
-        presentation_proposal_dict: dict = None,  # serialized pres proposal message
-        presentation_request: dict = None,  # indy proof req
-        presentation_request_dict: dict = None,  # serialized pres request message
-        presentation: dict = None,  # indy proof
+        presentation_proposal: dict = None,
+        presentation_request: dict = None,
+        presentation: dict = None,
         verified: str = None,
         auto_present: bool = False,
         error_msg: str = None,
         trace: bool = False,
-        **kwargs
+        **kwargs,
     ):
         """Initialize a new PresentationExchange."""
         super().__init__(presentation_exchange_id, state, trace=trace, **kwargs)
@@ -62,10 +62,9 @@ class V10PresentationExchange(BaseExchangeRecord):
         self.initiator = initiator
         self.role = role
         self.state = state
-        self.presentation_proposal_dict = presentation_proposal_dict
-        self.presentation_request = presentation_request  # indy proof req
-        self.presentation_request_dict = presentation_request_dict
-        self.presentation = presentation  # indy proof
+        self.presentation_proposal = presentation_proposal
+        self.presentation_request = presentation_request
+        self.presentation = presentation
         self.verified = verified
         self.auto_present = auto_present
         self.error_msg = error_msg
@@ -83,10 +82,10 @@ class V10PresentationExchange(BaseExchangeRecord):
             prop: getattr(self, prop)
             for prop in (
                 "connection_id",
+                "thread_id",
                 "initiator",
-                "presentation_proposal_dict",
+                "presentation_proposal",
                 "presentation_request",
-                "presentation_request_dict",
                 "presentation",
                 "role",
                 "state",
@@ -97,18 +96,50 @@ class V10PresentationExchange(BaseExchangeRecord):
             )
         }
 
+    @property
+    def record_tags(self) -> dict:
+        """Used to define tags with which record can be found."""
+        return {
+            prop: getattr(self, prop)
+            for prop in (
+                "connection_id",
+                "thread_id",
+                "initiator",
+                "role",
+                "state",
+            )
+        }
+
+    @classmethod
+    async def retrieve_by_connection_and_thread(
+        cls, context: InjectionContext, connection_id: str, thread_id: str
+    ):
+        """Retrieve a credential exchange record by connection and thread ID."""
+        cache_key = f"credential_exchange_ctidx::{connection_id}::{thread_id}"
+        record_id = await cls.get_cached_key(context, cache_key)
+        if record_id:
+            record = await cls.retrieve_by_id(context, record_id)
+        else:
+            record = await cls.retrieve_by_tag_filter(
+                context,
+                {"thread_id": thread_id},
+                {"connection_id": connection_id} if connection_id else None,
+            )
+            await cls.set_cached_key(context, cache_key, record._id)
+        return record
+
     def __eq__(self, other: Any) -> bool:
         """Comparison between records."""
         return super().__eq__(other)
 
 
-class V10PresentationExchangeSchema(BaseExchangeSchema):
+class THCFPresentationExchangeSchema(BaseExchangeSchema):
     """Schema for de/serialization of v1.0 presentation exchange records."""
 
     class Meta:
-        """V10PresentationExchangeSchema metadata."""
+        """THCFPresentationExchangeSchema metadata."""
 
-        model_class = V10PresentationExchange
+        model_class = THCFPresentationExchange
 
     presentation_exchange_id = fields.Str(
         required=False,
@@ -128,32 +159,30 @@ class V10PresentationExchangeSchema(BaseExchangeSchema):
     initiator = fields.Str(
         required=False,
         description="Present-proof exchange initiator: self or external",
-        example=V10PresentationExchange.INITIATOR_SELF,
+        example=THCFPresentationExchange.INITIATOR_SELF,
         validate=validate.OneOf(["self", "external"]),
     )
     role = fields.Str(
         required=False,
         description="Present-proof exchange role: prover or verifier",
-        example=V10PresentationExchange.ROLE_PROVER,
+        example=THCFPresentationExchange.ROLE_PROVER,
         validate=validate.OneOf(["prover", "verifier"]),
     )
     state = fields.Str(
         required=False,
         description="Present-proof exchange state",
-        example=V10PresentationExchange.STATE_VERIFIED,
+        example=THCFPresentationExchange.STATE_VERIFIED,
     )
-    presentation_proposal_dict = fields.Dict(
+    presentation_proposal = fields.Dict(
         required=False, description="Serialized presentation proposal message"
     )
-    presentation_request = fields.Dict(
+    presentation_request = fields.Nested(
+        PresentationRequestSchema,
         required=False,
-        description="(Indy) presentation request (also known as proof request)",
-    )
-    presentation_request_dict = fields.Dict(
-        required=False, description="Serialized presentation request message"
+        description="presentation request (also known as proof request)",
     )
     presentation = fields.Dict(
-        required=False, description="(Indy) presentation (also known as proof)"
+        required=False, description="presentation (also known as proof)"
     )
     verified = fields.Str(  # tag: must be a string
         required=False,

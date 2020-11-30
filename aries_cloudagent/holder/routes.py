@@ -18,6 +18,7 @@ from ..messaging.valid import (
     UUIDFour,
 )
 from ..wallet.error import WalletNotFoundError
+from collections import OrderedDict
 
 
 class AttributeMimeTypesResultSchema(OpenAPISchema):
@@ -77,16 +78,6 @@ class CredentialsListSchema(OpenAPISchema):
     """Result schema for a credential query."""
 
     results = fields.List(fields.Nested(CredentialSchema()))
-
-
-class CredentialsListQueryStringSchema(OpenAPISchema):
-    """Parameters and validators for query string in credentials list query."""
-
-    start = fields.Int(description="Start index", required=False, **WHOLE_NUM,)
-    count = fields.Int(
-        description="Maximum number to retrieve", required=False, **NATURAL_NUM,
-    )
-    wql = fields.Str(description="(JSON) WQL query", required=False, **INDY_WQL,)
 
 
 class CredIdMatchInfoSchema(OpenAPISchema):
@@ -172,12 +163,67 @@ async def credentials_remove(request: web.BaseRequest):
     return web.json_response({})
 
 
+class PDSCredentialsListSchema(OpenAPISchema):
+    pass
+
+
 @docs(
-    tags=["credentials"], summary="Fetch credentials from wallet",
+    tags=["credentials"],
+    summary="Fetch credentials from wallet",
 )
-@querystring_schema(CredentialsListQueryStringSchema())
-@response_schema(CredentialsListSchema(), 200)
+@querystring_schema(PDSCredentialsListSchema())
 async def credentials_list(request: web.BaseRequest):
+    """
+    Request handler for searching credential records.
+
+    Args:
+        request: aiohttp request object
+
+    Returns:
+        The credential list response
+
+    """
+    context = request.app["request_context"]
+
+    holder: BaseHolder = await context.inject(BaseHolder)
+    try:
+        credentials = await holder.get_credentials()
+    except HolderError as err:
+        raise web.HTTPBadRequest(reason=err.roll_up) from err
+
+    for i in credentials:
+        i["credential"] = json.loads(i["credential"], object_pairs_hook=OrderedDict)
+
+    return web.json_response({"results": credentials})
+
+
+class IndyCredentialsListQueryStringSchema(OpenAPISchema):
+    """Parameters and validators for query string in credentials list query."""
+
+    start = fields.Int(
+        description="Start index",
+        required=False,
+        **WHOLE_NUM,
+    )
+    count = fields.Int(
+        description="Maximum number to retrieve",
+        required=False,
+        **NATURAL_NUM,
+    )
+    wql = fields.Str(
+        description="(JSON) WQL query",
+        required=False,
+        **INDY_WQL,
+    )
+
+
+# @docs(
+#     tags=["credentials"],
+#     summary="Fetch credentials from wallet",
+# )
+# @querystring_schema(IndyCredentialsListQueryStringSchema())
+# @response_schema(CredentialsListSchema(), 200)
+async def indy_credentials_list(request: web.BaseRequest):
     """
     Request handler for searching credential records.
 
@@ -210,50 +256,6 @@ async def credentials_list(request: web.BaseRequest):
     return web.json_response({"results": credentials})
 
 
-class THCFCredentialsListQueryStringSchema(OpenAPISchema):
-    pass
-
-
-class THCFCredentialListSchema(OpenAPISchema):
-    credential = fields.Dict(keys=fields.Str, values=fields.Str)
-
-
-from ..protocols.issue_credential.v1_0.models.credential_exchange import (
-    V10CredentialExchange,
-)
-from ..messaging.models.base import BaseModelError, OpenAPISchema
-from ..storage.error import StorageError, StorageNotFoundError
-from .thcf_model import THCFCredential
-
-
-@docs(
-    tags=["credentials"], summary="Fetch credentials from wallet",
-)
-@querystring_schema(THCFCredentialsListQueryStringSchema())
-@response_schema(THCFCredentialListSchema(), 200)
-async def THCFcredentials_list(request: web.BaseRequest):
-    """
-    Request handler for searching credential records.
-
-    Args:
-        request: aiohttp request object
-
-    Returns:
-        The credential list response
-
-    """
-    context = request.app["request_context"]
-
-    try:
-        records = await THCFCredential.query(context)
-        result = [record.serialize() for record in records]
-
-    except (StorageError, BaseModelError) as err:
-        raise web.HTTPBadRequest(reason=err.roll_up) from err
-
-    return web.json_response({"results": result})
-
-
 async def register(app: web.Application):
     """Register routes."""
 
@@ -266,7 +268,7 @@ async def register(app: web.Application):
                 allow_head=False,
             ),
             web.post("/credential/{credential_id}/remove", credentials_remove),
-            web.get("/credentials", THCFcredentials_list, allow_head=False),
+            web.get("/credentials", credentials_list, allow_head=False),
         ]
     )
 
