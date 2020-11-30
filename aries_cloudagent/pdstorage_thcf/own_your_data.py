@@ -85,21 +85,23 @@ class OwnYourDataVault(BasePersonalDataStorage):
 
         return result_str
 
-    async def save(self, record: str) -> str:
+    async def save(self, record: str, metadata: str) -> str:
         oyd_repo = self.settings.get("repo")
         dri_value = encode(record)
+        meta = json.loads(metadata)
         await self.update_token()
         async with ClientSession() as session:
+            body = {
+                "content": json.loads(record),
+                "dri": dri_value,
+                "table_name": oyd_repo if oyd_repo is not None else "dip.data",
+            }
+            if meta["oca_schema_dri"]:
+                body["schema_dri"] = meta["oca_schema_dri"]
             result = await session.post(
                 f"{self.api_url}/api/data",
                 headers={"Authorization": "Bearer " + self.token["access_token"]},
-                json={
-                    "content": json.loads(record),
-                    "dri": dri_value,
-                    # "schema_dri": dri_schema_value,
-                    # "mime_type": "application/json",
-                    "table_name": oyd_repo if oyd_repo != None else "dip.data",
-                },
+                json=body,
             )
             result = await result.text()
             result = json.loads(result)

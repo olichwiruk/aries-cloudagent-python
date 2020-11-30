@@ -38,7 +38,7 @@ async def load_string(context: RequestContext, id: str) -> str:
     return result
 
 
-async def save_string(context: RequestContext, payload: str) -> str:
+async def save_string(context: RequestContext, payload: str, metadata="{}") -> str:
     if payload == None:
         return None
     assert isinstance(payload, str), "payload is not a string"
@@ -51,7 +51,7 @@ async def save_string(context: RequestContext, payload: str) -> str:
     pds: BasePersonalDataStorage = await context.inject(
         BasePersonalDataStorage, {"personal_storage_type": active_pds.get_pds_name()}
     )
-    payload_id = await pds.save(payload)
+    payload_id = await pds.save(payload, metadata)
 
     match_table = DriStorageMatchTable(payload_id, active_pds.get_pds_name())
     payload_id = await match_table.save(context)
