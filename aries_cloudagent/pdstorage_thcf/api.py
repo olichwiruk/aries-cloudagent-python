@@ -37,7 +37,7 @@ async def load_string(context: RequestContext, id: str) -> str:
 
 
 async def save_string(context: RequestContext, payload: str, metadata="{}") -> str:
-    assert_type(id, str)
+    assert_type(payload, str)
 
     try:
         active_pds = await SavedPersonalStorage.retrieve_active(context)

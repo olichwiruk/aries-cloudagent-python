@@ -1,6 +1,6 @@
 from .base import BasePersonalDataStorage
 from .api import encode
-from .error import *
+from .error import PersonalDataStorageError
 
 import json
 import logging
@@ -27,22 +27,22 @@ class OwnYourDataVault(BasePersonalDataStorage):
         #     return
 
         parsed_url = urlparse(self.settings.get("api_url"))
-        self.api_url = '{url.scheme}://{url.netloc}'.format(url=parsed_url)
+        self.api_url = "{url.scheme}://{url.netloc}".format(url=parsed_url)
         client_id = self.settings.get("client_id")
         client_secret = self.settings.get("client_secret")
         grant_type = self.settings.get("grant_type", "client_credentials")
         scope = self.settings.get("scope")
 
         if self.api_url is None:
-            raise PersonalDataStorageLackingConfigurationError(
+            raise PersonalDataStorageError(
                 "Please configure the plugin, api_url is empty"
             )
         if client_id == None:
-            raise PersonalDataStorageLackingConfigurationError(
+            raise PersonalDataStorageError(
                 "Please configure the plugin, Client_id is empty"
             )
         if client_secret == None:
-            raise PersonalDataStorageLackingConfigurationError(
+            raise PersonalDataStorageError(
                 "Please configure the plugin, Client_secret is empty"
             )
 
@@ -50,7 +50,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
             body = {
                 "client_id": client_id,
                 "client_secret": client_secret,
-                "grant_type": grant_type
+                "grant_type": grant_type,
             }
             if scope is not None:
                 body["scope"] = scope
@@ -59,7 +59,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
                 json=body,
             )
             if result.status != 200:
-                raise PersonalDataStorageServerError(
+                raise PersonalDataStorageError(
                     "Server Error, Could be that the connection is invalid or some other unforseen error, check if the server is up"
                 )
 
@@ -80,7 +80,6 @@ class OwnYourDataVault(BasePersonalDataStorage):
                 url, headers={"Authorization": "Bearer " + self.token["access_token"]}
             )
             result_str = await result.text()
-            result_dict = json.loads(result_str)
             LOGGER.info("Result of GET request %s", result_str)
 
         return result_str

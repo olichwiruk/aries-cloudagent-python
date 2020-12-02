@@ -1,13 +1,12 @@
-from .api import *
+from .api import load_string, save_string
 from .base import *
-from .error import *
-from .message_types import *
+from .error import PersonalDataStorageError, PersonalDataStorageNotFoundError
+from .message_types import ExchangeDataB, ExchangeDataA
 from aries_cloudagent.messaging.base_handler import (
     BaseHandler,
     BaseResponder,
     RequestContext,
 )
-from ..protocols.problem_report.v1_0.message import ProblemReport
 import logging
 
 LOGGER = logging.getLogger(__name__)
@@ -27,7 +26,7 @@ class ExchangeDataAHandler(BaseHandler):
             payload = await load_string(context, payload_dri)
             if payload == None:
                 raise PersonalDataStorageNotFoundError
-        except PersonalDataStorageError as err:
+        except PersonalDataStorageNotFoundError as err:
             LOGGER.warning("TODO: ExchangeDataAHandler ProblemReport %s", err.roll_up)
             return
 
