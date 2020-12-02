@@ -20,11 +20,10 @@ async def load_string(context: RequestContext, id: str) -> str:
         match = await DriStorageMatchTable.retrieve_by_id(context, id)
     except StorageNotFoundError as err:
         LOGGER.info(
-            f"""table_that_matches_plugins_with_ids has an id that matches with None value 
-                input id: {id}
-                plugin: {match}
-                ERROR: {err.roll_up}
-            """
+            f"table_that_matches_plugins_with_ids id that matches with None value\n",
+            f"input id: {id}\n",
+            f"plugin: {match}",
+            f"ERROR: {err.roll_up}",
         )
         raise PersonalDataStorageNotFoundError(err)
 

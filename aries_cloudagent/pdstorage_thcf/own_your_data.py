@@ -6,7 +6,7 @@ import json
 import logging
 from urllib.parse import urlparse
 
-from aiohttp import ClientSession, FormData
+from aiohttp import ClientSession
 
 LOGGER = logging.getLogger(__name__)
 
@@ -16,6 +16,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
         super().__init__()
         self.api_url = None
         self.token = None
+        self.usage_policy = None
         self.preview_settings = {
             "oca_schema_namespace": "pds",
             "oca_schema_dri": "9bABtmHu628Ss4oHmyTU5gy7QB1VftngewTmh7wdmN1j",
@@ -28,6 +29,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
 
         parsed_url = urlparse(self.settings.get("api_url"))
         self.api_url = "{url.scheme}://{url.netloc}".format(url=parsed_url)
+        LOGGER.info("API URL OYD %s", self.api_url)
         client_id = self.settings.get("client_id")
         client_secret = self.settings.get("client_secret")
         grant_type = self.settings.get("grant_type", "client_credentials")
@@ -37,11 +39,11 @@ class OwnYourDataVault(BasePersonalDataStorage):
             raise PersonalDataStorageError(
                 "Please configure the plugin, api_url is empty"
             )
-        if client_id == None:
+        if client_id is None:
             raise PersonalDataStorageError(
                 "Please configure the plugin, Client_id is empty"
             )
-        if client_secret == None:
+        if client_secret is None:
             raise PersonalDataStorageError(
                 "Please configure the plugin, Client_secret is empty"
             )
@@ -68,6 +70,20 @@ class OwnYourDataVault(BasePersonalDataStorage):
             self.token = token
             LOGGER.info("update token: %s", self.token)
 
+        """
+        Download the usage policy
+
+        """
+
+        async with ClientSession() as session:
+            result = await session.get(
+                f"{self.api_url}/api/meta/usage",
+                headers={"Authorization": "Bearer " + self.token["access_token"]},
+            )
+
+            self.usage_policy = await result.text()
+            LOGGER.info("Usage policy %s", self.usage_policy)
+
     async def load(self, dri: str) -> str:
         """
         TODO: Errors checking
@@ -79,7 +95,17 @@ class OwnYourDataVault(BasePersonalDataStorage):
             result = await session.get(
                 url, headers={"Authorization": "Bearer " + self.token["access_token"]}
             )
-            result_str = await result.text()
+            result_str: str = await result.text()
+
+            """
+            Strip the {"content": ""}
+            """
+            beginning_to_delete = '{"content":"'
+            to_delete_size = len(beginning_to_delete)
+            # -2 cause it has to end with "}
+            if result_str[0:to_delete_size] == '{"content":"':
+                result_str = result_str[to_delete_size:-2]
+
             LOGGER.info("Result of GET request %s", result_str)
 
         return result_str
@@ -88,15 +114,18 @@ class OwnYourDataVault(BasePersonalDataStorage):
         oyd_repo = self.settings.get("repo")
         dri_value = encode(record)
         meta = json.loads(metadata)
+
         await self.update_token()
+        LOGGER.info("OYD save record %s metadata %s", record, meta)
         async with ClientSession() as session:
             body = {
-                "content": json.loads(record),
+                "content": record,
                 "dri": dri_value,
                 "table_name": oyd_repo if oyd_repo is not None else "dip.data",
             }
-            if meta["oca_schema_dri"]:
+            if meta.get("oca_schema_dri") is not None:
                 body["schema_dri"] = meta["oca_schema_dri"]
+
             result = await session.post(
                 f"{self.api_url}/api/data",
                 headers={"Authorization": "Bearer " + self.token["access_token"]},

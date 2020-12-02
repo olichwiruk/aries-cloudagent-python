@@ -13,16 +13,16 @@ from aiohttp_apispec import (
 from marshmallow import fields, validate, Schema
 from .base import BasePersonalDataStorage
 from .api import load_string, save_string
-from .error import *
+from .error import PersonalDataStorageError
 from ..connections.models.connection_record import ConnectionRecord
 from ..wallet.error import WalletError
 from ..storage.error import StorageNotFoundError, StorageError
-from .message_types import *
+from .message_types import ExchangeDataA
 from .models.saved_personal_storage import SavedPersonalStorage
 
 
 class SaveRecordSchema(Schema):
-    payload = fields.Str(required=False)
+    payload = fields.Str(required=True)
 
 
 class SetActiveStorageTypeSchema(Schema):
@@ -31,12 +31,12 @@ class SetActiveStorageTypeSchema(Schema):
 
 
 class GetRecordFromAgentSchema(Schema):
-    connection_id = fields.Str(required=False)
-    payload_id = fields.Str(required=False)
+    connection_id = fields.Str(required=True)
+    payload_id = fields.Str(required=True)
 
 
 class SaveSettingsSchema(Schema):
-    settings = fields.Dict(required=False)
+    settings = fields.Dict(required=True)
 
 
 class GetSettingsSchema(Schema):
@@ -52,11 +52,8 @@ async def save_record(request: web.BaseRequest):
     context = request.app["request_context"]
     body = await request.json()
 
-    payload = body.get("payload", None)
-    assert payload != None, "payload field is None"
-
     try:
-        payload_id = await save_string(context, payload)
+        payload_id = await save_string(context, body.get("payload"))
     except PersonalDataStorageError as err:
         raise web.HTTPError(reason=err.roll_up)
 
@@ -70,8 +67,6 @@ async def save_record(request: web.BaseRequest):
 async def get_record(request: web.BaseRequest):
     context = request.app["request_context"]
     payload_id = request.match_info["payload_id"]
-
-    assert payload_id != None, "payload_id field is empty"
 
     try:
         result = await load_string(context, payload_id)
@@ -92,9 +87,7 @@ async def get_record_from_agent(request: web.BaseRequest):
     payload_id = request.query.get("payload_id")
 
     try:
-        connection_record: ConnectionRecord = await ConnectionRecord.retrieve_by_id(
-            context, connection_id
-        )
+        await ConnectionRecord.retrieve_by_id(context, connection_id)
     except (WalletError, StorageError) as err:
         raise web.HTTPBadRequest(reason=err.roll_up) from err
 
@@ -136,7 +129,7 @@ async def set_settings(request: web.BaseRequest):
     body = await request.json()
     settings: dict = body.get("settings", None)
 
-    if settings == None:
+    if settings is None:
         raise web.HTTPNotFound(reason="Settings schema is empty")
 
     # get all pds configurations from the user's input json
