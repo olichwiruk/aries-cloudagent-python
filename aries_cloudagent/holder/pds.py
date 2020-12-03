@@ -126,6 +126,7 @@ class PDSHolder(BaseHolder):
         TODO: this checking is very shallow, we need something robust
 
         """
+        """
         for field in requested:
             if field not in credential["credentialSubject"]:
                 raise HolderError(
@@ -134,6 +135,7 @@ class PDSHolder(BaseHolder):
                     f"requested attributes === {requested}\n"
                     f"Requested_field === {field}\n"
                 )
+        """
 
         """
 
