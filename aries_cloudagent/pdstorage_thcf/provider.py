@@ -2,7 +2,6 @@ import logging
 
 from ..config.base import BaseProvider, BaseInjector, BaseSettings
 from ..utils.classloader import ClassLoader
-from .models.saved_personal_storage import SavedPersonalStorage
 
 LOGGER = logging.getLogger(__name__)
 
@@ -17,7 +16,7 @@ class PersonalDataStorageProvider(BaseProvider):
 
         # error checking code
         LOGGER.info("PersonalDataStorage type %s", storage_type)
-        assert storage_type[0] != None, "active personal_storage_type, is None"
+        assert storage_type[0] is not None, "active personal_storage_type, is None"
         if type(storage_type) == list:
             storage_type = tuple(storage_type)
         assert isinstance(
@@ -27,7 +26,7 @@ class PersonalDataStorageProvider(BaseProvider):
         # create a singleton object if there is no object of specified name tuple
         if storage_type not in self.cached_instances:
             storage_class = registered_types.get(storage_type[0])
-            assert storage_class != None, "Storage type / class is not registered"
+            assert storage_class is not None, "Storage type / class is not registered"
 
             public_data_storage = ClassLoader.load_class(storage_class)
             self.cached_instances[storage_type] = public_data_storage()

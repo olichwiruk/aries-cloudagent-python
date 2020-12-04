@@ -278,7 +278,7 @@ async def get_table_of_records(request: web.BaseRequest):
     except PersonalDataStorageError as err:
         raise web.HTTPError(reason=err.roll_up)
 
-    return web.json_response({"payload": result})
+    return web.json_response(json.loads(result))
 
 
 async def register(app: web.Application):

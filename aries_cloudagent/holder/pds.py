@@ -17,14 +17,18 @@ from aries_cloudagent.storage.record import StorageRecord
 from ..storage.base import BaseStorageRecordSearch
 from ..storage.error import StorageError
 from .base import BaseHolder, HolderError
+from aries_cloudagent.pdstorage_thcf.api import load_string, load_table, save_string
+from aries_cloudagent.pdstorage_thcf.error import PersonalDataStorageNotFoundError
 
+CREDENTIALS_TABLE = "credentials"
 
 # TODO: Better error handling
 class PDSHolder(BaseHolder):
-    def __init__(self, wallet, storage):
+    def __init__(self, wallet, storage, context):
         self.logger = logging.getLogger(__name__)
         self.wallet = wallet
         self.storage = storage
+        self.context = context
 
     async def get_credential(self, credential_id: str) -> str:
         """
@@ -34,13 +38,12 @@ class PDSHolder(BaseHolder):
             credential_id: Credential id to retrieve
 
         """
-
         try:
-            record = await self.storage.get_record("THCFCredential", credential_id)
-        except StorageError as err:
+            credential = await load_string(self.context, credential_id)
+        except PersonalDataStorageNotFoundError as err:
             raise HolderError(err.roll_up)
 
-        return record.value
+        return credential
 
     async def delete_credential(self, credential_id: str):
         """
@@ -50,11 +53,7 @@ class PDSHolder(BaseHolder):
             credential_id: Credential id to remove
 
         """
-        try:
-            record = await self.storage.get_record("THCFCredential", credential_id)
-            await self.storage.delete_record(record)
-        except StorageError as err:
-            raise HolderError(err.roll_up)
+        pass
 
     async def get_mime_type(
         self, credential_id: str, attr: str = None
@@ -242,13 +241,15 @@ class PDSHolder(BaseHolder):
             raise HolderError("Proof is incorrect, could not verify")
 
         try:
-            record = StorageRecord("THCFCredential", json.dumps(credential_data))
-            # TODO: TAGS?
-            await self.storage.add_record(record)
-        except StorageError as err:
+            record_id = await save_string(
+                self.context,
+                json.dumps(credential_data),
+                metadata=json.dumps({"table": CREDENTIALS_TABLE}),
+            )
+        except PersonalDataStorageNotFoundError as err:
             raise HolderError(err.roll_up)
 
-        return record.id
+        return record_id
 
     async def get_credentials(self) -> list:
         """
@@ -259,21 +260,15 @@ class PDSHolder(BaseHolder):
 
         """
         try:
-            search: BaseStorageRecordSearch = self.storage.search_records(
-                "THCFCredential"
-            )
-            records = await search.fetch_all()
-        except StorageError as err:
+            query = await load_table(self.context, CREDENTIALS_TABLE)
+        except PersonalDataStorageNotFoundError as err:
             raise HolderError(err.roll_up)
 
-        credentials = []
-        for i in records:
-            cred = {"id": i.id, "credential": i.value}
-            credentials.append(cred)
+        query = json.loads(query)
 
-        self.logger.debug("Credentials GET CREDENTIALS %s", credentials)
+        self.logger.info("Credentials GET CREDENTIALS %s", query)
 
-        return credentials
+        return query
 
     async def create_revocation_state(
         self,

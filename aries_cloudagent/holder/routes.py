@@ -191,10 +191,13 @@ async def credentials_list(request: web.BaseRequest):
     except HolderError as err:
         raise web.HTTPBadRequest(reason=err.roll_up) from err
 
-    for i in credentials:
-        i["credential"] = json.loads(i["credential"], object_pairs_hook=OrderedDict)
+    result = []
+    for cred in credentials:
+        cred_dict = json.loads(cred)
+        cred_dict = json.loads(cred_dict)
+        result.append(cred_dict)
 
-    return web.json_response({"results": credentials})
+    return web.json_response({"result": result})
 
 
 class IndyCredentialsListQueryStringSchema(OpenAPISchema):

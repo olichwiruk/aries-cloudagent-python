@@ -68,6 +68,8 @@ async def load_table(context, table: str) -> str:
     )
 
     result = await pds.load_table(table)
+
+    assert_type(result, str)
     return result
 
 
