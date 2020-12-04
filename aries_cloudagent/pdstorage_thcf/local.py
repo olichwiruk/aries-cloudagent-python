@@ -27,3 +27,7 @@ class LocalPersonalDataStorage(BasePersonalDataStorage):
         self.storage[result] = record
 
         return result
+
+    async def load_table(self, table: str) -> str:
+
+        return "tables not supported by active PDStorage "

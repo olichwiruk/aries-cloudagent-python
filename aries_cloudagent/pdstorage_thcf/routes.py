@@ -12,7 +12,7 @@ from aiohttp_apispec import (
 
 from marshmallow import fields, validate, Schema
 from .base import BasePersonalDataStorage
-from .api import load_string, save_string
+from .api import load_string, save_string, load_table
 from .error import PersonalDataStorageError
 from ..connections.models.connection_record import ConnectionRecord
 from ..wallet.error import WalletError
@@ -265,6 +265,22 @@ async def get_storage_types(request: web.BaseRequest):
     )
 
 
+@docs(
+    tags=["PersonalDataStorage"],
+    summary="Retrieve data from a public data storage using data id",
+)
+async def get_table_of_records(request: web.BaseRequest):
+    context = request.app["request_context"]
+    table = request.match_info["table"]
+
+    try:
+        result = await load_table(context, table)
+    except PersonalDataStorageError as err:
+        raise web.HTTPError(reason=err.roll_up)
+
+    return web.json_response({"payload": result})
+
+
 async def register(app: web.Application):
     """Register routes."""
     app.add_routes(
@@ -289,6 +305,11 @@ async def register(app: web.Application):
             web.get(
                 "/pds/{payload_id}",
                 get_record,
+                allow_head=False,
+            ),
+            web.get(
+                "/pds/table/{table}",
+                get_table_of_records,
                 allow_head=False,
             ),
         ]

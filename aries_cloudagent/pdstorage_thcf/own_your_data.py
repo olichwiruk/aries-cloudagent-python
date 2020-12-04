@@ -7,6 +7,7 @@ import logging
 from urllib.parse import urlparse
 
 from aiohttp import ClientSession
+from aries_cloudagent.aathcf.credentials import assert_type
 
 LOGGER = logging.getLogger(__name__)
 
@@ -16,7 +17,6 @@ class OwnYourDataVault(BasePersonalDataStorage):
         super().__init__()
         self.api_url = None
         self.token = None
-        self.usage_policy = None
         self.preview_settings = {
             "oca_schema_namespace": "pds",
             "oca_schema_dri": "9bABtmHu628Ss4oHmyTU5gy7QB1VftngewTmh7wdmN1j",
@@ -81,8 +81,8 @@ class OwnYourDataVault(BasePersonalDataStorage):
                 headers={"Authorization": "Bearer " + self.token["access_token"]},
             )
 
-            self.usage_policy = await result.text()
-            LOGGER.info("Usage policy %s", self.usage_policy)
+            self.settings["usage_policy"] = await result.text()
+            LOGGER.info("Usage policy %s", self.settings["usage_policy"])
 
     async def load(self, dri: str) -> str:
         """
@@ -98,8 +98,11 @@ class OwnYourDataVault(BasePersonalDataStorage):
             result_str: str = await result.text()
 
             """
+
             Strip the {"content": ""}
+
             """
+
             beginning_to_delete = '{"content":"'
             to_delete_size = len(beginning_to_delete)
             # -2 cause it has to end with "}
@@ -111,20 +114,39 @@ class OwnYourDataVault(BasePersonalDataStorage):
         return result_str
 
     async def save(self, record: str, metadata: str) -> str:
-        oyd_repo = self.settings.get("repo")
+        """
+        meta: {
+            "table" - specifies the table name into which save the data
+            "oca_schema_dri"
+        }
+        """
+        table = self.settings.get("repo")
+        table = table if table is not None else "dip.data"
         dri_value = encode(record)
         meta = json.loads(metadata)
 
         await self.update_token()
         LOGGER.info("OYD save record %s metadata %s", record, meta)
         async with ClientSession() as session:
+            """
+            Pack request body
+            """
+
+            if meta.get("table") is not None:
+                table = f"{table}.{meta.get('table')}"
+
             body = {
                 "content": record,
                 "dri": dri_value,
-                "table_name": oyd_repo if oyd_repo is not None else "dip.data",
+                "table_name": table,
             }
+
             if meta.get("oca_schema_dri") is not None:
                 body["schema_dri"] = meta["oca_schema_dri"]
+
+            """
+            Request
+            """
 
             result = await session.post(
                 f"{self.api_url}/api/data",
@@ -136,3 +158,18 @@ class OwnYourDataVault(BasePersonalDataStorage):
             LOGGER.info("Result of POST request %s", result)
 
         return dri_value
+
+    async def load_table(self, table: str) -> str:
+        assert_type(table, str)
+        await self.update_token()
+
+        url = f"{self.api_url}/api/repos/dip.data.{table}/items"
+        LOGGER.info("OYD LOAD TABLE url [ %s ]", url)
+        async with ClientSession() as session:
+            result = await session.get(
+                url, headers={"Authorization": "Bearer " + self.token["access_token"]}
+            )
+            result = await result.text()
+            LOGGER.info("OYD LOAD TABLE result: [ %s ]", result)
+
+        return result

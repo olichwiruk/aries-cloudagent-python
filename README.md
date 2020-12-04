@@ -1,3 +1,7 @@
+### Most of the relevent tests are here
+
+```https://github.com/krzosa/acapy_jupyter_controller_and_tests```
+
 ### Setup modified Acapy
 
 1. Setup the initial enviroment first using the instructions from here https://github.com/THCLab/aries

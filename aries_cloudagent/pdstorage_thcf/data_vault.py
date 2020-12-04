@@ -66,3 +66,7 @@ class DataVault(BasePersonalDataStorage):
             response_json = json.loads(response_text)
 
         return response_json["content_dri"]
+
+    async def load_table(self, table: str) -> str:
+
+        return "tables not supported by active PDStorage "

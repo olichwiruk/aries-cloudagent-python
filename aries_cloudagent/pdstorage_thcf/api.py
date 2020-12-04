@@ -13,8 +13,9 @@ from aries_cloudagent.aathcf.credentials import assert_type
 LOGGER = logging.getLogger(__name__)
 
 
-async def load_string(context: RequestContext, id: str) -> str:
+async def load_string(context, id: str) -> str:
     assert_type(id, str)
+
     # plugin = table_that_matches_plugins_with_ids.get(id, None)
     try:
         match = await DriStorageMatchTable.retrieve_by_id(context, id)
@@ -35,7 +36,7 @@ async def load_string(context: RequestContext, id: str) -> str:
     return result
 
 
-async def save_string(context: RequestContext, payload: str, metadata="{}") -> str:
+async def save_string(context, payload: str, metadata="{}") -> str:
     assert_type(payload, str)
 
     try:
@@ -52,6 +53,22 @@ async def save_string(context: RequestContext, payload: str, metadata="{}") -> s
     payload_id = await match_table.save(context)
 
     return payload_id
+
+
+async def load_table(context, table: str) -> str:
+    assert_type(table, str)
+
+    try:
+        active_pds = await SavedPersonalStorage.retrieve_active(context)
+    except StorageNotFoundError as err:
+        raise PersonalDataStorageNotFoundError(f"No active pds found {err.roll_up}")
+
+    pds: BasePersonalDataStorage = await context.inject(
+        BasePersonalDataStorage, {"personal_storage_type": active_pds.get_pds_name()}
+    )
+
+    result = await pds.load_table(table)
+    return result
 
 
 def encode(data: str) -> str:
