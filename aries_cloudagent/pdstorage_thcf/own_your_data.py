@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from aiohttp import ClientSession
 from aries_cloudagent.aathcf.credentials import assert_type
 import time
+from collections import OrderedDict
 
 LOGGER = logging.getLogger(__name__)
 
@@ -103,22 +104,11 @@ class OwnYourDataVault(BasePersonalDataStorage):
                 url, headers={"Authorization": "Bearer " + self.token["access_token"]}
             )
             result_str: str = await result.text()
+            result_dict: dict = json.loads(result_str, object_pairs_hook=OrderedDict)
+            result_dict.pop("dri")
+            result_dict.pop("id")
 
-            """
-
-            Strip the {"content": ""}
-
-            """
-
-            beginning_to_delete = '{"content":"'
-            to_delete_size = len(beginning_to_delete)
-            # -2 cause it has to end with "}
-            if result_str[0:to_delete_size] == '{"content":"':
-                result_str = result_str[to_delete_size:-2]
-
-            LOGGER.info("Result of GET request %s", result_str)
-
-        return result_str
+        return json.dumps(result_str)
 
     async def save(self, record: str, metadata: str) -> str:
         """
@@ -133,7 +123,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
         dri_value = encode(record)
         meta = json.loads(metadata)
         record = json.loads(record)
-        record["record_dri_value"] = dri_value
+        record["dri"] = dri_value
 
         await self.update_token()
         LOGGER.info("OYD save record %s metadata %s", record, meta)
