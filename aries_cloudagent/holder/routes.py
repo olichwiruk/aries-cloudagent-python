@@ -163,14 +163,10 @@ async def credentials_remove(request: web.BaseRequest):
     return web.json_response({})
 
 
-class PDSCredentialsListSchema(OpenAPISchema):
-    table_name = fields.Str(required=True)
-
 @docs(
     tags=["credentials"],
     summary="Fetch credentials from wallet",
 )
-@querystring_schema(PDSCredentialsListSchema())
 async def credentials_list(request: web.BaseRequest):
     """
     Request handler for searching credential records.
@@ -193,7 +189,6 @@ async def credentials_list(request: web.BaseRequest):
     result = []
     for cred in credentials:
         cred_dict = json.loads(cred)
-        cred_dict = json.loads(cred_dict)
         result.append(cred_dict)
 
     return web.json_response({"result": result})

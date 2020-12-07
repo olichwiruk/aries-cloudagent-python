@@ -25,8 +25,14 @@ class OwnYourDataVault(BasePersonalDataStorage):
         }
 
     async def update_token(self):
+
+        """
+        Check if the token expired
+        """
+
         time_elapsed = time.time() - (self.token_timestamp - 10)
-        if time_elapsed > self.token["expires_in"]:
+        if time_elapsed > float(self.token["expires_in"]):
+            print("TOKEN UPDATE", time_elapsed, self.token["expires_in"])
             parsed_url = urlparse(self.settings.get("api_url"))
             self.api_url = "{url.scheme}://{url.netloc}".format(url=parsed_url)
             LOGGER.info("API URL OYD %s", self.api_url)
@@ -121,6 +127,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
             "oca_schema_dri"
         }
         """
+
         table = self.settings.get("repo")
         table = table if table is not None else "dip.data"
         dri_value = encode(record)
@@ -137,7 +144,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
                 table = f"{table}.{meta.get('table')}"
 
             body = {
-                "content": record,
+                "content": json.loads(record),
                 "dri": dri_value,
                 "table_name": table,
                 "mime_type": "application/json",
@@ -146,16 +153,21 @@ class OwnYourDataVault(BasePersonalDataStorage):
             if meta.get("oca_schema_dri") is not None:
                 body["schema_dri"] = meta["oca_schema_dri"]
 
+            print(body)
+            print(self.token)
+
             """
             Request
             """
 
-            result = await session.post(
+            response = await session.post(
                 f"{self.api_url}/api/data",
                 headers={"Authorization": "Bearer " + self.token["access_token"]},
                 json=body,
             )
-            result = await result.text()
+            result = await response.text()
+            print("Result POST DATA TO OYD", result)
+            assert response.status == 200, "Request failed, != 200"
             result = json.loads(result)
             LOGGER.info("Result of POST request %s", result)
 

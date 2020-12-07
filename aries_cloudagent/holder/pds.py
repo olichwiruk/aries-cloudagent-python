@@ -248,7 +248,6 @@ class PDSHolder(BaseHolder):
             )
         except PersonalDataStorageNotFoundError as err:
             raise HolderError(err.roll_up)
-
         return record_id
 
     async def get_credentials(self) -> list:
