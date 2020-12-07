@@ -132,6 +132,8 @@ class OwnYourDataVault(BasePersonalDataStorage):
         table = table if table is not None else "dip.data"
         dri_value = encode(record)
         meta = json.loads(metadata)
+        record = json.loads(record)
+        record["record_dri_value"] = dri_value
 
         await self.update_token()
         LOGGER.info("OYD save record %s metadata %s", record, meta)
@@ -144,7 +146,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
                 table = f"{table}.{meta.get('table')}"
 
             body = {
-                "content": json.loads(record),
+                "content": record,
                 "dri": dri_value,
                 "table_name": table,
                 "mime_type": "application/json",
@@ -152,9 +154,6 @@ class OwnYourDataVault(BasePersonalDataStorage):
 
             if meta.get("oca_schema_dri") is not None:
                 body["schema_dri"] = meta["oca_schema_dri"]
-
-            print(body)
-            print(self.token)
 
             """
             Request
@@ -166,7 +165,6 @@ class OwnYourDataVault(BasePersonalDataStorage):
                 json=body,
             )
             result = await response.text()
-            print("Result POST DATA TO OYD", result)
             assert response.status == 200, "Request failed, != 200"
             result = json.loads(result)
             LOGGER.info("Result of POST request %s", result)
