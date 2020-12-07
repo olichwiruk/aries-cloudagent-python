@@ -164,8 +164,7 @@ async def credentials_remove(request: web.BaseRequest):
 
 
 class PDSCredentialsListSchema(OpenAPISchema):
-    pass
-
+    table_name = fields.Str(required=True)
 
 @docs(
     tags=["credentials"],
