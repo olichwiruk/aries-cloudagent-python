@@ -115,9 +115,6 @@ class OwnYourDataVault(BasePersonalDataStorage):
             result_dict: dict = json.loads(result, object_pairs_hook=OrderedDict)
             result_dict = result_dict.get("content")
 
-            # result_dict.pop("dri", None)
-            # result_dict.pop("id", None)
-
         if isinstance(result_dict, dict):
             result_dict = json.dumps(result_dict)
 

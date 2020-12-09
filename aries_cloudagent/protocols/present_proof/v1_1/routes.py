@@ -153,9 +153,17 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
 
     records = await THCFPresentationExchange.query(context, tag_filter=request.query)
 
+    """
+    Serialize the result into a json format
+    """
+
     result = []
     for i in records:
         result.append(i.serialize())
+
+    """
+    Download credentials
+    """
 
     try:
         credentials = await load_table(context, CREDENTIALS_TABLE)
@@ -165,21 +173,57 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
     except PersonalDataStorageError as err:
         return web.json_response(err)
 
-    # """
-    # Match the requests with credentials in the possesion of the agent
-    # """
+    """
+    DEBUG VERSION
+    for rec in result:
+        rec["list_of_matching_credentials"] = []
+        for cred in credentials:
+            cred = json.loads(cred)
+            cred_content = json.loads(cred["content"])
+            i_have_credential = True
+            for attr in rec["presentation_request"]["requested_attributes"]:
+                if attr not in cred_content["credentialSubject"]:
+                    i_have_credential = False
 
-    # i_have_credentials_for_these = {"presentation_exchange_id": "credential_dri"}
-    # for rec in records:
-    #     for cred in credentials:
-    #         cred = json.loads(cred)
-    #         i_have_credential = True
-    #         for attr in rec.presentation_request["requested_attributes"]:
-    #             if attr not in cred["credentialSubject"]:
-    #                 i_have_credential = False
+            if i_have_credential is True:
+                rec["list_of_matching_credentials"].append(cred["dri"])
+    """
 
-    #         if i_have_credential is True:
-    #             i_have_credentials_for_these[rec.presentation_exchange_id] = cred["dri"]
+    """
+    Match the credential requests with credentials in the possesion of the agent
+    in this case we check if both issuer_did and oca_schema_dri are correct
+
+    TODO: Optimization, create a dictionary of credential - schema base matches,
+    with schema base as key
+    """
+
+    for rec in result:
+        rec["list_of_matching_credentials"] = []
+        for cred in credentials:
+            cred = json.loads(cred)
+            cred_content = json.loads(cred["content"])
+
+            print("Cred content:", cred_content)
+
+            record_base_dri = rec["presentation_request"].get(
+                "schema_base_dri", "INVALIDA"
+            )
+            # record_issuer_did = rec["presentation_request"].get(
+            #     "issuer_did", "INVALIDB"
+            # )
+            cred_base_dri = cred_content["credentialSubject"].get(
+                "oca_schema_dri", "INVALIDC"
+            )
+            # cred_issuer_did = cred_content["credentialSubject"].get(
+            #     "issuer_did", "INVALIDD"
+            # )
+
+            if (
+                record_base_dri
+                == cred_base_dri
+                # and record_issuer_did == cred_issuer_did
+            ):
+                rec["list_of_matching_credentials"].append(cred["dri"])
 
     return web.json_response(result)
 

@@ -41,7 +41,7 @@ async def retrieve_credential_exchange(context, credential_exchange_id):
                 context, credential_exchange_id
             )
         )
-    except StorageNotFoundError as err:
+    except StorageNotFoundError:
         raise web.HTTPNotFound(
             reason="Couldnt find a exchange_record through the credential_exchange_id"
         )
