@@ -14,6 +14,15 @@ from collections import OrderedDict
 LOGGER = logging.getLogger(__name__)
 
 
+async def unpack_response(response):
+    result: str = await response.text()
+    if response.status != 200:
+        LOGGER.error("Error Own Your Data PDS", result)
+        raise PersonalDataStorageError("Error Own Your Data PDS", result)
+
+    return result
+
+
 class OwnYourDataVault(BasePersonalDataStorage):
     def __init__(self):
         super().__init__()
@@ -34,9 +43,11 @@ class OwnYourDataVault(BasePersonalDataStorage):
         time_elapsed = time.time() - (self.token_timestamp - 10)
         if time_elapsed > float(self.token["expires_in"]):
             print("TOKEN UPDATE", time_elapsed, self.token["expires_in"])
+
             parsed_url = urlparse(self.settings.get("api_url"))
             self.api_url = "{url.scheme}://{url.netloc}".format(url=parsed_url)
             LOGGER.info("API URL OYD %s", self.api_url)
+
             client_id = self.settings.get("client_id")
             client_secret = self.settings.get("client_secret")
             grant_type = self.settings.get("grant_type", "client_credentials")
@@ -48,11 +59,11 @@ class OwnYourDataVault(BasePersonalDataStorage):
                 )
             if client_id is None:
                 raise PersonalDataStorageError(
-                    "Please configure the plugin, Client_id is empty"
+                    "Please configure the plugin, client_id is empty"
                 )
             if client_secret is None:
                 raise PersonalDataStorageError(
-                    "Please configure the plugin, Client_secret is empty"
+                    "Please configure the plugin, client_secret is empty"
                 )
 
             async with ClientSession() as session:
@@ -67,12 +78,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
                     self.api_url + "/oauth/token",
                     json=body,
                 )
-                if result.status != 200:
-                    raise PersonalDataStorageError(
-                        "Server Error, Could be that the connection is invalid or some other unforseen error, check if the server is up"
-                    )
-
-                result = await result.text()
+                result = await unpack_response(result)
                 token = json.loads(result)
                 self.token = token
                 self.token_timestamp = time.time()
@@ -83,19 +89,21 @@ class OwnYourDataVault(BasePersonalDataStorage):
 
             """
 
+            url = f"{self.api_url}/api/meta/usage"
             async with ClientSession() as session:
                 result = await session.get(
-                    f"{self.api_url}/api/meta/usage",
+                    url,
                     headers={"Authorization": "Bearer " + self.token["access_token"]},
                 )
-
-                self.settings["usage_policy"] = await result.text()
+                result = await unpack_response(result)
+                self.settings["usage_policy"] = result
                 LOGGER.info("Usage policy %s", self.settings["usage_policy"])
 
     async def load(self, dri: str) -> str:
         """
         TODO: Errors checking
         """
+        assert_type(dri, str)
         await self.update_token()
 
         url = f"{self.api_url}/api/data/{dri}?p=dri&f=plain"
@@ -103,12 +111,17 @@ class OwnYourDataVault(BasePersonalDataStorage):
             result = await session.get(
                 url, headers={"Authorization": "Bearer " + self.token["access_token"]}
             )
-            result_str: str = await result.text()
-            result_dict: dict = json.loads(result_str, object_pairs_hook=OrderedDict)
-            result_dict.pop("dri")
-            result_dict.pop("id")
+            result = await unpack_response(result)
+            result_dict: dict = json.loads(result, object_pairs_hook=OrderedDict)
+            result_dict = result_dict.get("content")
 
-        return json.dumps(result_str)
+            # result_dict.pop("dri", None)
+            # result_dict.pop("id", None)
+
+        if isinstance(result_dict, dict):
+            result_dict = json.dumps(result_dict)
+
+        return result_dict
 
     async def save(self, record: str, metadata: str) -> str:
         """
@@ -117,15 +130,19 @@ class OwnYourDataVault(BasePersonalDataStorage):
             "oca_schema_dri"
         }
         """
+        assert_type(record, str)
+        assert_type(metadata, str)
+        await self.update_token()
 
         table = self.settings.get("repo")
         table = table if table is not None else "dip.data"
-        dri_value = encode(record)
+
         meta = json.loads(metadata)
-        record = json.loads(record)
+        dri_value = encode(record)
+
+        record = {"content": record}
         record["dri"] = dri_value
 
-        await self.update_token()
         LOGGER.info("OYD save record %s metadata %s", record, meta)
         async with ClientSession() as session:
             """
@@ -143,19 +160,20 @@ class OwnYourDataVault(BasePersonalDataStorage):
             }
 
             if meta.get("oca_schema_dri") is not None:
+                record["oca_schema_dri"] = meta["oca_schema_dri"]
                 body["schema_dri"] = meta["oca_schema_dri"]
 
             """
             Request
             """
 
+            url = f"{self.api_url}/api/data"
             response = await session.post(
-                f"{self.api_url}/api/data",
+                url,
                 headers={"Authorization": "Bearer " + self.token["access_token"]},
                 json=body,
             )
-            result = await response.text()
-            assert response.status == 200, "Request failed, != 200"
+            result = await unpack_response(response)
             result = json.loads(result)
             LOGGER.info("Result of POST request %s", result)
 
@@ -171,7 +189,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
             result = await session.get(
                 url, headers={"Authorization": "Bearer " + self.token["access_token"]}
             )
-            result = await result.text()
+            result = await unpack_response(result)
             LOGGER.info("OYD LOAD TABLE result: [ %s ]", result)
 
         return result

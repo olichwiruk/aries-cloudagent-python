@@ -46,6 +46,7 @@ class PresentProofHandler(BaseHandler):
             HandlerException,
         )
 
+        print("Presentation PresentProofHandler::::", presentation)
         is_verified = await verifier.verify_presentation(
             presentation_request=exchange_record.presentation_request,
             presentation=presentation,

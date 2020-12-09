@@ -23,9 +23,10 @@ async def load_string(context, id: str) -> str:
         LOGGER.info(
             f"table_that_matches_plugins_with_ids id that matches with None value\n",
             f"input id: {id}\n",
-            f"plugin: {match}",
             f"ERROR: {err.roll_up}",
         )
+        debug_all_records = await DriStorageMatchTable.query(context)
+        print("All records in table: ", debug_all_records)
         raise PersonalDataStorageNotFoundError(err)
 
     pds: BasePersonalDataStorage = await context.inject(
@@ -38,6 +39,7 @@ async def load_string(context, id: str) -> str:
 
 async def save_string(context, payload: str, metadata="{}") -> str:
     assert_type(payload, str)
+    assert_type(metadata, str)
 
     try:
         active_pds = await SavedPersonalStorage.retrieve_active(context)
@@ -70,6 +72,28 @@ async def load_table(context, table: str) -> str:
     result = await pds.load_table(table)
 
     assert_type(result, str)
+    return result
+
+
+async def delete_record(context, id: str) -> str:
+    assert_type(id, str)
+
+    try:
+        match = await DriStorageMatchTable.retrieve_by_id(context, id)
+    except StorageNotFoundError as err:
+        LOGGER.error(
+            f"table_that_matches_plugins_with_ids id that matches with None value\n",
+            f"input id: {id}\n",
+            f"plugin: {match}",
+            f"ERROR: {err.roll_up}",
+        )
+        raise PersonalDataStorageNotFoundError(err)
+
+    pds: BasePersonalDataStorage = await context.inject(
+        BasePersonalDataStorage, {"personal_storage_type": match.pds_type}
+    )
+    result = await pds.delete(id)
+
     return result
 
 

@@ -24,6 +24,9 @@ from .messages.present_proof import PresentProof
 from .models.utils import retrieve_exchange
 import logging
 import collections
+from aries_cloudagent.pdstorage_thcf.api import load_table
+from aries_cloudagent.holder.pds import CREDENTIALS_TABLE
+from aries_cloudagent.pdstorage_thcf.error import PersonalDataStorageError
 
 LOG = logging.getLogger(__name__).info
 
@@ -129,6 +132,7 @@ async def present_proof_api(request: web.BaseRequest):
     except HolderError as err:
         raise web.HTTPInternalServerError(reason=err.roll_up)
 
+    print("Presentation present proof api:::::", presentation)
     message = PresentProof(credential_presentation=presentation)
     message.assign_thread_id(exchange_record.thread_id)
     await outbound_handler(message, connection_id=connection_record.connection_id)
@@ -152,6 +156,30 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
     result = []
     for i in records:
         result.append(i.serialize())
+
+    try:
+        credentials = await load_table(context, CREDENTIALS_TABLE)
+        credentials = json.loads(credentials)
+    except json.JSONDecodeError as err:
+        return web.json_response(err)
+    except PersonalDataStorageError as err:
+        return web.json_response(err)
+
+    # """
+    # Match the requests with credentials in the possesion of the agent
+    # """
+
+    # i_have_credentials_for_these = {"presentation_exchange_id": "credential_dri"}
+    # for rec in records:
+    #     for cred in credentials:
+    #         cred = json.loads(cred)
+    #         i_have_credential = True
+    #         for attr in rec.presentation_request["requested_attributes"]:
+    #             if attr not in cred["credentialSubject"]:
+    #                 i_have_credential = False
+
+    #         if i_have_credential is True:
+    #             i_have_credentials_for_these[rec.presentation_exchange_id] = cred["dri"]
 
     return web.json_response(result)
 

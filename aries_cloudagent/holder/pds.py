@@ -8,6 +8,8 @@ from aries_cloudagent.aathcf.credentials import (
     CredentialSchema,
     PresentationRequestSchema,
     PresentationSchema,
+    assert_type,
+    assert_type_or,
     create_proof,
     validate_schema,
     verify_proof,
@@ -89,6 +91,8 @@ class PDSHolder(BaseHolder):
             credential_definitions: Indy formatted credential definitions JSON
             rev_states: Indy format revocation states JSON
         """
+        assert_type_or(presentation_request, OrderedDict, dict)
+        assert_type_or(requested_credentials, OrderedDict, dict)
 
         validate_schema(
             PresentationRequestSchema,
@@ -113,8 +117,9 @@ class PDSHolder(BaseHolder):
             credential = await self.get_credential(credential_id)
         except HolderError as err:
             raise HolderError(f"credential_id {credential_id} is invalid {err.roll_up}")
+        assert_type(credential, str)
+        print(credential)
         credential = json.loads(credential, object_pairs_hook=OrderedDict)
-
         """
 
         Check if credential has what it needs to have
