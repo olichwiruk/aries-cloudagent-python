@@ -16,7 +16,10 @@ class DriStorageMatchTable(BaseRecord):
         schema_class = "DriStorageMatchTableSchema"
 
     def __init__(
-        self, dri: str, pds_type: tuple, **keywordArgs,
+        self,
+        dri: str,
+        pds_type: tuple,
+        **keywordArgs,
     ):
         super().__init__(dri)
         self.pds_type = pds_type
@@ -48,8 +51,7 @@ class DriStorageMatchTable(BaseRecord):
         try:
             self.updated_at = time_now()
             storage: BaseStorage = await context.inject(BaseStorage)
-
-            record = self.storage_record
+            
             await storage.add_record(self.storage_record)
             new_record = True
         except StorageDuplicateError:

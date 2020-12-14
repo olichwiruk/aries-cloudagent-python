@@ -14,10 +14,6 @@ from aries_cloudagent.aathcf.credentials import (
     validate_schema,
     verify_proof,
 )
-from aries_cloudagent.storage.record import StorageRecord
-
-from ..storage.base import BaseStorageRecordSearch
-from ..storage.error import StorageError
 from .base import BaseHolder, HolderError
 from aries_cloudagent.pdstorage_thcf.api import load_string, load_table, save_string
 from aries_cloudagent.pdstorage_thcf.error import PersonalDataStorageNotFoundError
