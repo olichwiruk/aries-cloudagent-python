@@ -1,6 +1,5 @@
 from .base import BasePersonalDataStorage
 from .error import PersonalDataStorageNotFoundError
-from ..messaging.request_context import RequestContext
 from .models.saved_personal_storage import SavedPersonalStorage
 import hashlib
 import multihash
@@ -95,6 +94,26 @@ async def delete_record(context, id: str) -> str:
     result = await pds.delete(id)
 
     return result
+
+
+async def pds_get_own_your_data(context):
+    """
+    This endpoint exists so that it's easier to search and
+    replace implementation dependent parts in the future
+    """
+    try:
+        active_pds = await SavedPersonalStorage.retrieve_active(context)
+    except StorageNotFoundError as err:
+        raise PersonalDataStorageNotFoundError(f"No active pds found {err.roll_up}")
+
+    assert (
+        active_pds.get_pds_name()[0] == "own_your_data"
+    ), "active PDS is not own_your_data"
+    pds: BasePersonalDataStorage = await context.inject(
+        BasePersonalDataStorage, {"personal_storage_type": active_pds.get_pds_name()}
+    )
+
+    return pds
 
 
 def encode(data: str) -> str:

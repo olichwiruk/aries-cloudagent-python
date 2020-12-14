@@ -34,6 +34,12 @@ class OwnYourDataVault(BasePersonalDataStorage):
             "oca_schema_dri": "9bABtmHu628Ss4oHmyTU5gy7QB1VftngewTmh7wdmN1j",
         }
 
+    async def get_usage_policy(self):
+        if self.settings.get("usage_policy") is None:
+            await self.update_token()
+
+        return self.settings["usage_policy"]
+
     async def update_token(self):
 
         """

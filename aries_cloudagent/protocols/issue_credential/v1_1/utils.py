@@ -5,6 +5,7 @@ from aries_cloudagent.protocols.issue_credential.v1_1.models.credential_exchange
     CredentialExchangeRecord,
 )
 from aries_cloudagent.issuer.base import BaseIssuer, IssuerError
+from aries_cloudagent.aathcf.credentials import assert_type, assert_type_or
 
 
 async def retrieve_connection(context, connection_id):
@@ -53,7 +54,11 @@ async def retrieve_credential_exchange(context, credential_exchange_id):
 
 # TODO: Not connection record
 async def create_credential(
-    context, credential_request, connection_record, exception=web.HTTPError
+    context,
+    credential_request,
+    *,
+    their_public_did: str = None,
+    exception=web.HTTPError,
 ) -> dict:
     """
     Create Credential utility wrapper which handles exceptions
@@ -67,6 +72,10 @@ async def create_credential(
     """
     credential_type = credential_request.get("credential_type")
     credential_values = credential_request.get("credential_values")
+    if their_public_did is not None:
+        assert_type(their_public_did, str)
+        credential_values.update({"id": their_public_did})
+
     try:
         issuer: BaseIssuer = await context.inject(BaseIssuer)
         credential, _ = await issuer.create_credential(
@@ -75,9 +84,7 @@ async def create_credential(
             },
             credential_values=credential_values,
             credential_offer={},
-            credential_request={
-                "connection_record": connection_record,
-            },
+            credential_request={},
         )
     except IssuerError as err:
         raise exception(reason=f"""create_credential: {err.roll_up}""")

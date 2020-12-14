@@ -63,8 +63,9 @@ class TestCredentialIssueHandler(AsyncTestCase):
         )
         await record.save(context)
 
-        connection = ConnectionRecord(my_did="1234-mydid", their_did="1234-theirdid")
-        credential = await create_credential(context, credential_request, connection)
+        credential = await create_credential(
+            context, credential_request, their_public_did="1234-theirdid"
+        )
         context.message: CredentialIssue = CredentialIssue(credential=credential)
         context.message.assign_thread_id(thread_id)
         context.connection_ready = True
