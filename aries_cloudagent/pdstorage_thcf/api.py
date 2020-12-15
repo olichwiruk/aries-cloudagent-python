@@ -18,7 +18,7 @@ async def pds_get_active_pds_name(context):
     except StorageNotFoundError as err:
         raise PersonalDataStorageNotFoundError(f"No active pds found {err.roll_up}")
 
-    return active_pds.get_pds_name
+    return active_pds.get_pds_name()
 
 
 async def load_string(context, id: str) -> str:
@@ -49,7 +49,7 @@ async def save_string(context, payload: str, metadata="{}") -> str:
     assert_type(payload, str)
     assert_type(metadata, str)
 
-    active_pds_name = await pds_get_active_pds_name()
+    active_pds_name = await pds_get_active_pds_name(context)
 
     pds: BasePersonalDataStorage = await context.inject(
         BasePersonalDataStorage, {"personal_storage_type": active_pds_name}
@@ -65,7 +65,7 @@ async def save_string(context, payload: str, metadata="{}") -> str:
 async def load_table(context, table: str) -> str:
     assert_type(table, str)
 
-    active_pds_name = await pds_get_active_pds_name()
+    active_pds_name = await pds_get_active_pds_name(context)
 
     pds: BasePersonalDataStorage = await context.inject(
         BasePersonalDataStorage, {"personal_storage_type": active_pds_name}
