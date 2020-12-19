@@ -1,8 +1,6 @@
 from ...messaging.models.base_record import BaseRecord, BaseRecordSchema
-from ...storage.base import BaseStorage
-from ...storage.error import StorageDuplicateError
 
-from marshmallow import fields, Schema
+from marshmallow import fields
 from aries_cloudagent.storage.error import StorageNotFoundError
 
 

@@ -12,17 +12,17 @@ from aiohttp_apispec import (
 
 from marshmallow import fields, validate, Schema
 from .base import BasePersonalDataStorage
-from .api import load_string, save_string
-from .error import *
+from .api import load_string, save_string, load_table
+from .error import PersonalDataStorageError
 from ..connections.models.connection_record import ConnectionRecord
 from ..wallet.error import WalletError
 from ..storage.error import StorageNotFoundError, StorageError
-from .message_types import *
+from .message_types import ExchangeDataA
 from .models.saved_personal_storage import SavedPersonalStorage
 
 
 class SaveRecordSchema(Schema):
-    payload = fields.Str(required=False)
+    payload = fields.Str(required=True)
 
 
 class SetActiveStorageTypeSchema(Schema):
@@ -31,12 +31,12 @@ class SetActiveStorageTypeSchema(Schema):
 
 
 class GetRecordFromAgentSchema(Schema):
-    connection_id = fields.Str(required=False)
-    payload_id = fields.Str(required=False)
+    connection_id = fields.Str(required=True)
+    payload_id = fields.Str(required=True)
 
 
 class SaveSettingsSchema(Schema):
-    settings = fields.Dict(required=False)
+    settings = fields.Dict(required=True)
 
 
 class GetSettingsSchema(Schema):
@@ -52,11 +52,8 @@ async def save_record(request: web.BaseRequest):
     context = request.app["request_context"]
     body = await request.json()
 
-    payload = body.get("payload", None)
-    assert payload != None, "payload field is None"
-
     try:
-        payload_id = await save_string(context, payload)
+        payload_id = await save_string(context, body.get("payload"))
     except PersonalDataStorageError as err:
         raise web.HTTPError(reason=err.roll_up)
 
@@ -70,8 +67,6 @@ async def save_record(request: web.BaseRequest):
 async def get_record(request: web.BaseRequest):
     context = request.app["request_context"]
     payload_id = request.match_info["payload_id"]
-
-    assert payload_id != None, "payload_id field is empty"
 
     try:
         result = await load_string(context, payload_id)
@@ -92,9 +87,7 @@ async def get_record_from_agent(request: web.BaseRequest):
     payload_id = request.query.get("payload_id")
 
     try:
-        connection_record: ConnectionRecord = await ConnectionRecord.retrieve_by_id(
-            context, connection_id
-        )
+        await ConnectionRecord.retrieve_by_id(context, connection_id)
     except (WalletError, StorageError) as err:
         raise web.HTTPBadRequest(reason=err.roll_up) from err
 
@@ -136,7 +129,7 @@ async def set_settings(request: web.BaseRequest):
     body = await request.json()
     settings: dict = body.get("settings", None)
 
-    if settings == None:
+    if settings is None:
         raise web.HTTPNotFound(reason="Settings schema is empty")
 
     # get all pds configurations from the user's input json
@@ -272,38 +265,20 @@ async def get_storage_types(request: web.BaseRequest):
     )
 
 
-"""
-@DEBUG ENDPOINT
-"""
-from ..wallet.base import BaseWallet, KeyInfo
-from ..wallet.crypto import sign_message, verify_signed_message, bytes_to_b64
-from ..issuer.base import BaseIssuer
-
-
-async def test_keys(wallet):
-    signing_key: KeyInfo = await wallet.create_signing_key()
-    print("signing_key", signing_key)
-
-    message = b"test message"
-    message = bytes_to_b64(message).encode("ascii")
-
-    print(
-        "SIGN NACL", sign_message(message, signing_key.verkey.encode("utf-8")),
-    )
-    print(
-        "SIGN wallet", await wallet.sign_message(message, signing_key.verkey),
-    )
-
-
 @docs(
-    tags=["1Testing"], summary="Endpoint for testing",
+    tags=["PersonalDataStorage"],
+    summary="Retrieve data from a public data storage using data id",
 )
-async def testing_endpoint(request: web.BaseRequest):
+async def get_table_of_records(request: web.BaseRequest):
     context = request.app["request_context"]
-    wallet: BaseWallet = await context.inject(BaseWallet)
-    issuer: BaseIssuer = await context.inject(BaseIssuer)
+    table = request.match_info["table"]
 
-    print("Create Credential", await issuer.create_credential({}, {}, {}, {}))
+    try:
+        result = await load_table(context, table)
+    except PersonalDataStorageError as err:
+        raise web.HTTPError(reason=err.roll_up)
+
+    return web.json_response(json.loads(result))
 
 
 async def register(app: web.Application):
@@ -313,10 +288,29 @@ async def register(app: web.Application):
             web.post("/pds/save", save_record),
             web.post("/pds/settings", set_settings),
             web.post("/pds/activate", set_active_storage_type),
-            web.post("/pds/get_from", get_record_from_agent,),
-            web.get("/debug/test", testing_endpoint, allow_head=False),
-            web.get("/pds", get_storage_types, allow_head=False,),
-            web.get("/pds/settings", get_settings, allow_head=False,),
-            web.get("/pds/{payload_id}", get_record, allow_head=False,),
+            web.post(
+                "/pds/get_from",
+                get_record_from_agent,
+            ),
+            web.get(
+                "/pds",
+                get_storage_types,
+                allow_head=False,
+            ),
+            web.get(
+                "/pds/settings",
+                get_settings,
+                allow_head=False,
+            ),
+            web.get(
+                "/pds/{payload_id}",
+                get_record,
+                allow_head=False,
+            ),
+            web.get(
+                "/pds/table/{table}",
+                get_table_of_records,
+                allow_head=False,
+            ),
         ]
     )

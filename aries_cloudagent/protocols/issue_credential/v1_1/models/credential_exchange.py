@@ -49,6 +49,7 @@ class CredentialExchangeRecord(BaseExchangeRecord):
         credential_request: dict = None,
         credential_id: str = None,
         credential_exchange_id: str = None,
+        their_public_did: str = None,
         **kwargs,
     ):
         """
@@ -68,6 +69,7 @@ class CredentialExchangeRecord(BaseExchangeRecord):
         self.trace = trace
         self.credential_request = credential_request
         self.credential_id = credential_id
+        self.their_public_did = their_public_did
 
     @property
     def credential_exchange_id(self) -> str:
@@ -88,6 +90,7 @@ class CredentialExchangeRecord(BaseExchangeRecord):
                 "role",
                 "state",
                 "trace",
+                "their_public_did",
             )
         }
 
@@ -181,3 +184,4 @@ class CredentialExchangeSchema(BaseExchangeSchema):
         ),
     )
     credential_request = fields.Dict(required=False, description="")
+    their_public_did = fields.Str(required=False)

@@ -117,6 +117,7 @@ class DefaultContextBuilder(ContextBuilder):
                     "aries_cloudagent.holder.pds.PDSHolder",
                     ClassProvider.Inject(BaseWallet),
                     ClassProvider.Inject(BaseStorage),
+                    context,
                 ),
                 ("get_credential", "store_credential", "create_credential_request"),
             ),

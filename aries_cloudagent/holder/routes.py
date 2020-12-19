@@ -163,15 +163,10 @@ async def credentials_remove(request: web.BaseRequest):
     return web.json_response({})
 
 
-class PDSCredentialsListSchema(OpenAPISchema):
-    pass
-
-
 @docs(
     tags=["credentials"],
     summary="Fetch credentials from wallet",
 )
-@querystring_schema(PDSCredentialsListSchema())
 async def credentials_list(request: web.BaseRequest):
     """
     Request handler for searching credential records.
@@ -191,10 +186,12 @@ async def credentials_list(request: web.BaseRequest):
     except HolderError as err:
         raise web.HTTPBadRequest(reason=err.roll_up) from err
 
-    for i in credentials:
-        i["credential"] = json.loads(i["credential"], object_pairs_hook=OrderedDict)
+    result = []
+    for cred in credentials:
+        cred_dict = json.loads(cred)
+        result.append(cred_dict)
 
-    return web.json_response({"results": credentials})
+    return web.json_response({"result": result})
 
 
 class IndyCredentialsListQueryStringSchema(OpenAPISchema):

@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from .error import PersonalDataStorageDuplicateError, PersonalDataStorageNotFoundError
 
 
 class BasePersonalDataStorage(ABC):
@@ -19,6 +18,10 @@ class BasePersonalDataStorage(ABC):
         """
         Returns: data represented by id
         """
+
+    @abstractmethod
+    async def load_table(self, table: str) -> str:
+        """"""
 
     def __repr__(self) -> str:
         """

@@ -2,12 +2,11 @@ from .injection_context import InjectionContext
 from ..pdstorage_thcf.models.saved_personal_storage import SavedPersonalStorage
 from ..pdstorage_thcf.base import BasePersonalDataStorage
 from ..storage.error import StorageNotFoundError
-from ..core.protocol_registry import ProtocolRegistry
 
 
 async def personal_data_storage_config(context: InjectionContext):
     """
-    When package gets loaded by acapy, create singleton instances for 
+    When package gets loaded by acapy, create singleton instances for
     all saved personal storages
     """
     all_saved_storages = await SavedPersonalStorage.query(context)
@@ -27,9 +26,8 @@ async def personal_data_storage_config(context: InjectionContext):
 
     # make sure an active storage exists
     try:
-        active_storage = await SavedPersonalStorage.retrieve_active(context)
+        await SavedPersonalStorage.retrieve_active(context)
     except StorageNotFoundError:
         default_storage = SavedPersonalStorage(state=SavedPersonalStorage.ACTIVE)
 
         await default_storage.save(context)
-

@@ -17,13 +17,13 @@ class DataVault(BasePersonalDataStorage):
             "oca_schema_dri": "ejHFuhg2v1ZrL5uQrHe3Arcxy62GWNakjTwL38swC9RB",
         }
         self.settings = {}
-        # self.settings = {"host": "https://data-vault.argo.colossi.network"}
+        # self.settings = {"api_url": "https://data-vault.argo.colossi.network"}
 
     async def load(self, id: str) -> str:
         """
         Returns: None on record not found
         """
-        url = f"{self.settings['host']}{API_ENDPOINT}{'/'}{id}"
+        url = f"{self.settings['api_url']}{API_ENDPOINT}/{id}"
         LOGGER.info(
             f"""DataVault.load: 
                 url: {url}
@@ -51,7 +51,7 @@ class DataVault(BasePersonalDataStorage):
     async def save(self, record: str, metadata: str) -> str:
         data = FormData()
         data.add_field("file", record, filename="data", content_type="application/json")
-        url = f"{self.settings['host']}{API_ENDPOINT}"
+        url = f"{self.settings['api_url']}{API_ENDPOINT}"
         LOGGER.info(
             f"""DataVault.save: 
                 url: {url}
@@ -66,3 +66,7 @@ class DataVault(BasePersonalDataStorage):
             response_json = json.loads(response_text)
 
         return response_json["content_dri"]
+
+    async def load_table(self, table: str) -> str:
+
+        return "tables not supported by active PDStorage "
