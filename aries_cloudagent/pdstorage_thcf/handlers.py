@@ -43,7 +43,14 @@ class ExchangeDataBHandler(BaseHandler):
     async def handle(self, context: RequestContext, responder: BaseResponder):
         LOGGER.info("ExchangeDataBHandler called with context %s", context)
         assert isinstance(context.message, ExchangeDataB)
+        msg = context.message
 
+        await responder.send_webhook(
+            "pds/payload",
+            {"dri": msg.payload_dri, "payload": msg.payload},
+        )
+
+        """
         try:
             payload_dri = await save_string(context, context.message.payload)
         except PersonalDataStorageError as err:
@@ -53,3 +60,4 @@ class ExchangeDataBHandler(BaseHandler):
             assert (
                 context.message.payload_dri == payload_dri
             ), "dri's differ between agents!"
+        """
