@@ -57,6 +57,7 @@ class AdminStatusReadinessSchema(Schema):
 
     ready = fields.Boolean(description="Readiness status", example=True)
 
+
 class AdminInfoSchema(Schema):
     """Schema for the info endpoint."""
 
@@ -335,6 +336,7 @@ class AdminServer(BaseAdminServer):
         setup_aiohttp_apispec(
             app=app, title=agent_label, version=version_string, swagger_path="/api/doc"
         )
+
         app.on_startup.append(self.on_startup)
 
         # ensure we always have status values
@@ -506,9 +508,9 @@ class AdminServer(BaseAdminServer):
     async def info_handler(self, request: web.BaseRequest):
         default_host = os.getenv("ACAPY_ENDPOINT").split("//")[-1]
         ws_url = os.getenv("WEBSOCKET_SERVER_URL")
-        return web.json_response({
-            "websocket_server_url": ws_url.replace("default_host", default_host)
-        })
+        return web.json_response(
+            {"websocket_server_url": ws_url.replace("default_host", default_host)}
+        )
 
     @docs(tags=["server"], summary="Shut down server")
     async def shutdown_handler(self, request: web.BaseRequest):

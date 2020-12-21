@@ -185,7 +185,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
         assert_type(table, str)
         await self.update_token()
 
-        url = f"{self.api_url}/api/data?table={table}&f=plain"
+        url = f"{self.api_url}/api/data?table=dip.data.{table}&f=plain"
         LOGGER.debug("OYD LOAD TABLE url [ %s ]", url)
         async with ClientSession() as session:
             result = await session.get(

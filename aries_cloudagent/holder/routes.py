@@ -186,12 +186,7 @@ async def credentials_list(request: web.BaseRequest):
     except HolderError as err:
         raise web.HTTPBadRequest(reason=err.roll_up) from err
 
-    result = []
-    for cred in credentials:
-        cred_dict = json.loads(cred)
-        result.append(cred_dict)
-
-    return web.json_response({"result": result})
+    return web.json_response({"result": credentials})
 
 
 class IndyCredentialsListQueryStringSchema(OpenAPISchema):
@@ -273,6 +268,7 @@ async def register(app: web.Application):
 def post_process_routes(app: web.Application):
     """Amend swagger API."""
 
+    print("SWAGGER: ", app._state["swagger_dict"])
     # Add top-level tags description
     if "tags" not in app._state["swagger_dict"]:
         app._state["swagger_dict"]["tags"] = []
