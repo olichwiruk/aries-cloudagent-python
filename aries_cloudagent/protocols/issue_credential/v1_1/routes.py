@@ -22,6 +22,7 @@ from .utils import (
     create_credential,
 )
 from aries_cloudagent.aathcf.credentials import raise_exception_invalid_state
+from aries_cloudagent.wallet.base import BaseWallet
 
 
 LOG = logging.getLogger(__name__).info
@@ -60,7 +61,12 @@ async def issue_credential(request: web.BaseRequest):
     )
     connection = await retrieve_connection(context, exchange.connection_id)
     request = exchange.credential_request
-    credential = await create_credential(context, request, connection, web.HTTPError)
+    credential = await create_credential(
+        context,
+        request,
+        their_public_did=exchange.their_public_did,
+        exception=web.HTTPError,
+    )
     LOG("CREDENTIAL %s", credential)
 
     issue = CredentialIssue(credential=credential)
@@ -78,13 +84,24 @@ async def issue_credential(request: web.BaseRequest):
 async def request_credential(request: web.BaseRequest):
     context = request.app["request_context"]
     outbound_handler = request.app["outbound_message_router"]
+    wallet: BaseWallet = await context.inject(BaseWallet)
 
     body = await request.json()
     credential_values = body.get("credential_values")
     connection_id = body.get("connection_id")
     connection_record = await retrieve_connection(context, connection_id)
+    public_did = await wallet.get_public_did()
+    public_did = public_did[0]
+    print("Public DID: ", public_did)
 
-    issue = CredentialRequest(credential={"credential_values": credential_values})
+    if public_did is None:
+        raise web.HTTPBadRequest(
+            reason="Your public did is None!, acquire a public did before requesting a credential"
+        )
+
+    issue = CredentialRequest(
+        credential={"credential_values": credential_values}, did=public_did
+    )
     await outbound_handler(issue, connection_id=connection_record.connection_id)
 
     exchange = CredentialExchangeRecord(

@@ -33,6 +33,7 @@ class CredentialRequestHandler(BaseHandler):
             state=CredentialExchangeRecord.STATE_REQUEST_RECEIVED,
             thread_id=message._thread_id,
             credential_request=credential,
+            their_public_did=context.message.did,
         )
 
         credential_exchange_id = await exchange_record.save(context)

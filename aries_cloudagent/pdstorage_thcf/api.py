@@ -1,6 +1,5 @@
 from .base import BasePersonalDataStorage
 from .error import PersonalDataStorageNotFoundError
-from ..messaging.request_context import RequestContext
 from .models.saved_personal_storage import SavedPersonalStorage
 import hashlib
 import multihash
@@ -13,6 +12,15 @@ from aries_cloudagent.aathcf.credentials import assert_type
 LOGGER = logging.getLogger(__name__)
 
 
+async def pds_get_active_pds_name(context):
+    try:
+        active_pds = await SavedPersonalStorage.retrieve_active(context)
+    except StorageNotFoundError as err:
+        raise PersonalDataStorageNotFoundError(f"No active pds found {err.roll_up}")
+
+    return active_pds.get_pds_name()
+
+
 async def load_string(context, id: str) -> str:
     assert_type(id, str)
 
@@ -20,13 +28,13 @@ async def load_string(context, id: str) -> str:
     try:
         match = await DriStorageMatchTable.retrieve_by_id(context, id)
     except StorageNotFoundError as err:
-        LOGGER.info(
+        LOGGER.error(
             f"table_that_matches_plugins_with_ids id that matches with None value\n",
             f"input id: {id}\n",
             f"ERROR: {err.roll_up}",
         )
         debug_all_records = await DriStorageMatchTable.query(context)
-        print("All records in table: ", debug_all_records)
+        LOGGER.error("All records in table: ", debug_all_records)
         raise PersonalDataStorageNotFoundError(err)
 
     pds: BasePersonalDataStorage = await context.inject(
@@ -41,17 +49,14 @@ async def save_string(context, payload: str, metadata="{}") -> str:
     assert_type(payload, str)
     assert_type(metadata, str)
 
-    try:
-        active_pds = await SavedPersonalStorage.retrieve_active(context)
-    except StorageNotFoundError as err:
-        raise PersonalDataStorageNotFoundError(f"No active pds found {err.roll_up}")
+    active_pds_name = await pds_get_active_pds_name(context)
 
     pds: BasePersonalDataStorage = await context.inject(
-        BasePersonalDataStorage, {"personal_storage_type": active_pds.get_pds_name()}
+        BasePersonalDataStorage, {"personal_storage_type": active_pds_name}
     )
     payload_id = await pds.save(payload, metadata)
 
-    match_table = DriStorageMatchTable(payload_id, active_pds.get_pds_name())
+    match_table = DriStorageMatchTable(payload_id, active_pds_name)
     payload_id = await match_table.save(context)
 
     return payload_id
@@ -60,13 +65,10 @@ async def save_string(context, payload: str, metadata="{}") -> str:
 async def load_table(context, table: str) -> str:
     assert_type(table, str)
 
-    try:
-        active_pds = await SavedPersonalStorage.retrieve_active(context)
-    except StorageNotFoundError as err:
-        raise PersonalDataStorageNotFoundError(f"No active pds found {err.roll_up}")
+    active_pds_name = await pds_get_active_pds_name(context)
 
     pds: BasePersonalDataStorage = await context.inject(
-        BasePersonalDataStorage, {"personal_storage_type": active_pds.get_pds_name()}
+        BasePersonalDataStorage, {"personal_storage_type": active_pds_name}
     )
 
     result = await pds.load_table(table)
@@ -93,6 +95,20 @@ async def delete_record(context, id: str) -> str:
         BasePersonalDataStorage, {"personal_storage_type": match.pds_type}
     )
     result = await pds.delete(id)
+
+    return result
+
+
+async def pds_get_usage_policy_if_active_pds_supports_it(context):
+    active_pds_name = await pds_get_active_pds_name(context)
+    if active_pds_name[0] != "own_your_data":
+        return None
+
+    pds: BasePersonalDataStorage = await context.inject(
+        BasePersonalDataStorage, {"personal_storage_type": active_pds_name}
+    )
+
+    result = await pds.get_usage_policy()
 
     return result
 

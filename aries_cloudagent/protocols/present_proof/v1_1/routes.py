@@ -168,10 +168,15 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
     try:
         credentials = await load_table(context, CREDENTIALS_TABLE)
         credentials = json.loads(credentials)
-    except json.JSONDecodeError as err:
-        return web.json_response(err)
+    except json.JSONDecodeError:
+        LOG(
+            "Error parsing credentials, perhaps there are no credentials in store %s",
+            credentials,
+        )
+        credentials = {}
     except PersonalDataStorageError as err:
-        return web.json_response(err)
+        LOG("PersonalDataStorageError %s", err.roll_up)
+        credentials = {}
 
     """
     DEBUG VERSION

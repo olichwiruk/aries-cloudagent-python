@@ -21,12 +21,14 @@ class CredentialRequest(AgentMessage):
         _id: str = None,
         *,
         credential: dict = None,
+        did: str = None,
         **kwargs,
     ):
         """Initialize credential issue object."""
         super().__init__(_id=_id, **kwargs)
         # TODO; Schema
         self.credential = credential
+        self.did = did
 
 
 class CredentialRequestSchema(AgentMessageSchema):
@@ -38,3 +40,4 @@ class CredentialRequestSchema(AgentMessageSchema):
         model_class = CredentialRequest
 
     credential = fields.Dict()
+    did = fields.Str()

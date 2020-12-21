@@ -34,6 +34,12 @@ class OwnYourDataVault(BasePersonalDataStorage):
             "oca_schema_dri": "9bABtmHu628Ss4oHmyTU5gy7QB1VftngewTmh7wdmN1j",
         }
 
+    async def get_usage_policy(self):
+        if self.settings.get("usage_policy") is None:
+            await self.update_token()
+
+        return self.settings["usage_policy"]
+
     async def update_token(self):
 
         """
@@ -42,11 +48,10 @@ class OwnYourDataVault(BasePersonalDataStorage):
 
         time_elapsed = time.time() - (self.token_timestamp - 10)
         if time_elapsed > float(self.token["expires_in"]):
-            print("TOKEN UPDATE", time_elapsed, self.token["expires_in"])
 
             parsed_url = urlparse(self.settings.get("api_url"))
             self.api_url = "{url.scheme}://{url.netloc}".format(url=parsed_url)
-            LOGGER.info("API URL OYD %s", self.api_url)
+            LOGGER.debug("API URL OYD %s", self.api_url)
 
             client_id = self.settings.get("client_id")
             client_secret = self.settings.get("client_secret")
@@ -82,7 +87,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
                 token = json.loads(result)
                 self.token = token
                 self.token_timestamp = time.time()
-                LOGGER.info("update token: %s", self.token)
+                LOGGER.debug("update token: %s", self.token)
 
             """
             Download the usage policy
@@ -97,7 +102,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
                 )
                 result = await unpack_response(result)
                 self.settings["usage_policy"] = result
-                LOGGER.info("Usage policy %s", self.settings["usage_policy"])
+                LOGGER.debug("Usage policy %s", self.settings["usage_policy"])
 
     async def load(self, dri: str) -> str:
         """
@@ -140,7 +145,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
         record = {"content": record}
         record["dri"] = dri_value
 
-        LOGGER.info("OYD save record %s metadata %s", record, meta)
+        LOGGER.debug("OYD save record %s metadata %s", record, meta)
         async with ClientSession() as session:
             """
             Pack request body
@@ -172,7 +177,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
             )
             result = await unpack_response(response)
             result = json.loads(result)
-            LOGGER.info("Result of POST request %s", result)
+            LOGGER.debug("Result of POST request %s", result)
 
         return dri_value
 
@@ -180,13 +185,13 @@ class OwnYourDataVault(BasePersonalDataStorage):
         assert_type(table, str)
         await self.update_token()
 
-        url = f"{self.api_url}/api/repos/dip.data.{table}/items"
-        LOGGER.info("OYD LOAD TABLE url [ %s ]", url)
+        url = f"{self.api_url}/api/data?table={table}&f=plain"
+        LOGGER.debug("OYD LOAD TABLE url [ %s ]", url)
         async with ClientSession() as session:
             result = await session.get(
                 url, headers={"Authorization": "Bearer " + self.token["access_token"]}
             )
             result = await unpack_response(result)
-            LOGGER.info("OYD LOAD TABLE result: [ %s ]", result)
+            LOGGER.debug("OYD LOAD TABLE result: [ %s ]", result)
 
         return result
