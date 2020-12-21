@@ -34,7 +34,7 @@ LOG = logging.getLogger(__name__).info
 class PresentationRequestAPISchema(OpenAPISchema):
     connection_id = fields.Str(required=True)
     requested_attributes = fields.List(fields.Str(required=True), required=True)
-    issuer_did = fields.Str(required=True)
+    issuer_did = fields.Str(required=False)
     schema_base_dri = fields.Str(required=True)
 
 
@@ -64,9 +64,11 @@ async def request_presentation_api(request: web.BaseRequest):
 
     presentation_request = {
         "requested_attributes": body.get("requested_attributes"),
-        "issuer_did": body.get("issuer_did"),
         "schema_base_dri": body.get("schema_base_dri"),
     }
+    issuer_did = body.get("issuer_did")
+    if issuer_did is not None:
+        presentation_request["issuer_did"] = issuer_did
 
     message = RequestProof(presentation_request=presentation_request)
     await outbound_handler(message, connection_id=connection_id)
