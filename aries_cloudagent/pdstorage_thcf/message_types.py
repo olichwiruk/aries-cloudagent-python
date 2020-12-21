@@ -23,8 +23,11 @@ class ExchangeDataA(AgentMessage):
         message_type = EXCHANGE_DATA_A
 
     def __init__(
-        self, *, payload_dri, **kwargs,
-):
+        self,
+        *,
+        payload_dri,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.payload_dri = payload_dri
 

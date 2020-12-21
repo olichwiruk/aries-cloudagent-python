@@ -114,7 +114,6 @@ async def get_record_from_agent(request: web.BaseRequest):
                 "no_configuration_needed": "yes-1234"
             },
             "own_your_data": {
-                "optional_instance_name: "default_no_cool",
                 "client_id": "test-1234",
                 "client_secret": "test-1234",
                 "grant_type": "client_credentials"
