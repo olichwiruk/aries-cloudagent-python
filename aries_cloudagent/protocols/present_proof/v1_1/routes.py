@@ -207,7 +207,6 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
     for rec in result:
         rec["list_of_matching_credentials"] = []
         for cred in credentials:
-            cred = json.loads(cred)
             cred_content = json.loads(cred["content"])
 
             print("Cred content:", cred_content)

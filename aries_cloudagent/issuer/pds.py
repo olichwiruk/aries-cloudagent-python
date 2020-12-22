@@ -162,10 +162,12 @@ class PDSIssuer(BaseIssuer):
         credential_type = schema.get("credential_type")
 
         my_did = await self.wallet.get_public_did()
-        my_did = my_did[0]
         raise_exception_on_null(my_did, "my Public did is NULL!")
+        raise_exception_on_null(my_did[0], "my Public did is NULL!")
         raise_exception_on_null(schema, "input schema")
         raise_exception_on_null(credential_values, "input credential_values")
+
+        my_did = my_did[0]
 
         credential_dict = OrderedDict()
         # TODO: Point to some OCA Credential schema
