@@ -26,7 +26,7 @@ import logging
 import collections
 from aries_cloudagent.pdstorage_thcf.api import load_table
 from aries_cloudagent.holder.pds import CREDENTIALS_TABLE
-from aries_cloudagent.pdstorage_thcf.error import PersonalDataStorageError
+from aries_cloudagent.pdstorage_thcf.error import PDSError
 
 LOG = logging.getLogger(__name__).info
 
@@ -176,8 +176,8 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
             credentials,
         )
         credentials = {}
-    except PersonalDataStorageError as err:
-        LOG("PersonalDataStorageError %s", err.roll_up)
+    except PDSError as err:
+        LOG("PDSError %s", err.roll_up)
         credentials = {}
 
     """

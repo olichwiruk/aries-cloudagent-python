@@ -1,9 +1,16 @@
 from ..core.error import BaseError
 
 
-class PersonalDataStorageError(BaseError):
+class PDSError(BaseError):
     """Base class for Storage errors."""
 
 
-class PersonalDataStorageNotFoundError(BaseError):
-    """Class for record not found in storage"""
+class PDSNotFoundError(PDSError):
+    """
+    Class of PDS not found.
+    This can be thrown when there is no active PDS or PDS type was not found.
+    """
+
+
+class PDSRecordNotFoundError(PDSError):
+    """Record not found in storage"""

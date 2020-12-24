@@ -1,5 +1,5 @@
 from .base import BasePersonalDataStorage
-from .error import PersonalDataStorageNotFoundError
+from .error import PDSNotFoundError
 from .models.saved_personal_storage import SavedPersonalStorage
 import hashlib
 import multihash
@@ -16,7 +16,7 @@ async def pds_get_active_pds_name(context):
     try:
         active_pds = await SavedPersonalStorage.retrieve_active(context)
     except StorageNotFoundError as err:
-        raise PersonalDataStorageNotFoundError(f"No active pds found {err.roll_up}")
+        raise PDSNotFoundError(f"No active pds found {err.roll_up}")
 
     return active_pds.get_pds_name()
 
@@ -35,7 +35,7 @@ async def load_string(context, id: str) -> str:
         )
         debug_all_records = await DriStorageMatchTable.query(context)
         LOGGER.error("All records in table: ", debug_all_records)
-        raise PersonalDataStorageNotFoundError(err)
+        raise PDSNotFoundError(err)
 
     pds: BasePersonalDataStorage = await context.inject(
         BasePersonalDataStorage, {"personal_storage_type": match.pds_type}
@@ -89,7 +89,7 @@ async def delete_record(context, id: str) -> str:
             f"plugin: {match}",
             f"ERROR: {err.roll_up}",
         )
-        raise PersonalDataStorageNotFoundError(err)
+        raise PDSNotFoundError(err)
 
     pds: BasePersonalDataStorage = await context.inject(
         BasePersonalDataStorage, {"personal_storage_type": match.pds_type}

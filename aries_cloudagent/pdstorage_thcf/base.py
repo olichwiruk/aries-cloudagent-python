@@ -8,20 +8,24 @@ class BasePersonalDataStorage(ABC):
 
     @abstractmethod
     async def save(self, record: str, metadata: str) -> str:
-        """
-        Returns: saved data id, (should maybe return None on key not found?)
-
-        """
+        """Returns: saved data id, (should maybe return None on key not found?)."""
 
     @abstractmethod
     async def load(self, id: str) -> str:
-        """
-        Returns: data represented by id
-        """
+        """Returns: data represented by id."""
 
     @abstractmethod
     async def load_table(self, table: str) -> str:
-        """"""
+        """Load all records from a table."""
+
+    @abstractmethod
+    async def ping(self) -> [bool, str]:
+        """
+        Returns: true if we connected at all, false if service is not responding.
+                 and additional info about the failure
+
+        connected, exception = await personal_storage.ping()
+        """
 
     def __repr__(self) -> str:
         """
