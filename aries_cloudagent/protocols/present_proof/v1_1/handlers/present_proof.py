@@ -63,7 +63,8 @@ class PresentProofHandler(BaseHandler):
 
         exchange_record.presentation = presentation
         exchange_record.verified = True
-        exchange_record.state = exchange_record.STATE_VERIFIED
+        exchange_record.prover_public_did = context.message.prover_public_did
+        exchange_record.state = exchange_record.STATE_PRESENTATION_RECEIVED
         await exchange_record.save(context, reason="PresentationExchange updated!")
 
         await responder.send_webhook(

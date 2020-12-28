@@ -1,4 +1,3 @@
-from typing import Sequence
 from marshmallow import fields
 from .....messaging.agent_message import AgentMessage, AgentMessageSchema
 from ..message_types import PRESENT_PROOF, PROTOCOL_PACKAGE
@@ -17,11 +16,13 @@ class PresentProof(AgentMessage):
         _id: str = None,
         *,
         credential_presentation=None,
+        prover_public_did=None,
         **kwargs,
     ):
         """Initialize credential issue object."""
         super().__init__(_id=_id, **kwargs)
         self.credential_presentation = credential_presentation
+        self.prover_public_did = prover_public_did
 
 
 class PresentProofSchema(AgentMessageSchema):
@@ -33,3 +34,4 @@ class PresentProofSchema(AgentMessageSchema):
         model_class = PresentProof
 
     credential_presentation = fields.Str(required=True)
+    prover_public_did = fields.Str(required=True)

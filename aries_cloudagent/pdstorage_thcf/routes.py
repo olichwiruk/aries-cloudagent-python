@@ -287,6 +287,11 @@ async def get_table_of_records(request: web.BaseRequest):
     return web.json_response(json.loads(result))
 
 
+@docs(tags=["Swagger"], summary="Get agent's swagger schema in json format")
+async def get_swagger_schema(request: web.BaseRequest):
+    return web.json_response(request.app._state["swagger_dict"])
+
+
 async def register(app: web.Application):
     """Register routes."""
     app.add_routes(
@@ -318,5 +323,6 @@ async def register(app: web.Application):
                 get_table_of_records,
                 allow_head=False,
             ),
+            web.get("/swagger", get_swagger_schema, allow_head=False),
         ]
     )

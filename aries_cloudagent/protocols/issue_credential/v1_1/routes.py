@@ -53,12 +53,14 @@ async def issue_credential(request: web.BaseRequest):
 
     credential_exchange_id = request.query.get("credential_exchange_id")
     exchange = await retrieve_credential_exchange(context, credential_exchange_id)
+
     raise_exception_invalid_state(
         exchange,
         CredentialExchangeRecord.STATE_REQUEST_RECEIVED,
         CredentialExchangeRecord.ROLE_ISSUER,
         web.HTTPBadRequest,
     )
+
     connection = await retrieve_connection(context, exchange.connection_id)
     request = exchange.credential_request
     credential = await create_credential(
@@ -67,8 +69,8 @@ async def issue_credential(request: web.BaseRequest):
         their_public_did=exchange.their_public_did,
         exception=web.HTTPError,
     )
-    LOG("CREDENTIAL %s", credential)
 
+    LOG("CREDENTIAL %s", credential)
     issue = CredentialIssue(credential=credential)
     issue.assign_thread_id(exchange.thread_id)
     await outbound_handler(issue, connection_id=connection.connection_id)
@@ -76,7 +78,31 @@ async def issue_credential(request: web.BaseRequest):
     exchange.state = CredentialExchangeRecord.STATE_ISSUED
     await exchange.save(context)
 
-    return web.json_response(credential)
+    return web.json_response(
+        {
+            "success": True,
+            "credential_exchange_id": exchange._id,
+        }
+    )
+
+
+async def routes_get_public_did(context):
+    wallet: BaseWallet = await context.inject(BaseWallet)
+    public_did = await wallet.get_public_did()
+
+    if public_did is None:
+        raise web.HTTPBadRequest(
+            reason="Your public did is None!, acquire a public did before requesting a credential"
+        )
+
+    public_did = public_did[0]
+
+    if public_did is None:
+        raise web.HTTPBadRequest(
+            reason="Your public did is None!, acquire a public did before requesting a credential"
+        )
+
+    return public_did
 
 
 @docs(tags=["issue-credential"], summary="Request Credential")
@@ -84,20 +110,13 @@ async def issue_credential(request: web.BaseRequest):
 async def request_credential(request: web.BaseRequest):
     context = request.app["request_context"]
     outbound_handler = request.app["outbound_message_router"]
-    wallet: BaseWallet = await context.inject(BaseWallet)
 
     body = await request.json()
     credential_values = body.get("credential_values")
     connection_id = body.get("connection_id")
     connection_record = await retrieve_connection(context, connection_id)
-    public_did = await wallet.get_public_did()
-    public_did = public_did[0]
+    public_did = await routes_get_public_did(context)
     print("Public DID: ", public_did)
-
-    if public_did is None:
-        raise web.HTTPBadRequest(
-            reason="Your public did is None!, acquire a public did before requesting a credential"
-        )
 
     issue = CredentialRequest(
         credential={"credential_values": credential_values}, did=public_did
@@ -117,7 +136,13 @@ async def request_credential(request: web.BaseRequest):
         context, reason="Save record of agent credential exchange"
     )
 
-    return web.json_response({"credential_exchange_id": exchange_id})
+    return web.json_response(
+        {
+            "success": True,
+            "thread_id": issue._thread_id,
+            "credential_exchange_id": exchange_id,
+        }
+    )
 
 
 @docs(tags=["issue-credential"], summary="Retrieve Credential Exchange")

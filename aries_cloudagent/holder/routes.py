@@ -268,7 +268,6 @@ async def register(app: web.Application):
 def post_process_routes(app: web.Application):
     """Amend swagger API."""
 
-    print("SWAGGER: ", app._state["swagger_dict"])
     # Add top-level tags description
     if "tags" not in app._state["swagger_dict"]:
         app._state["swagger_dict"]["tags"] = []

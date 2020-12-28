@@ -1,12 +1,9 @@
-from typing import Sequence
 from marshmallow import fields
 from .....messaging.agent_message import AgentMessage, AgentMessageSchema
 from ..message_types import REQUEST_PROOF, PROTOCOL_PACKAGE
 from aries_cloudagent.aathcf.credentials import (
     PresentationRequestSchema,
-    PresentationRequestedAttributesSchema,
 )
-import uuid
 
 HANDLER_CLASS = f"{PROTOCOL_PACKAGE}.handlers.request_proof.RequestProofHandler"
 

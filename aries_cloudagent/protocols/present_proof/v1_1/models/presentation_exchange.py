@@ -34,14 +34,15 @@ class THCFPresentationExchange(BaseExchangeRecord):
     STATE_REQUEST_RECEIVED = "request_received"
     STATE_PRESENTATION_SENT = "presentation_sent"
     STATE_PRESENTATION_RECEIVED = "presentation_received"
-    STATE_VERIFIED = "verified"
     STATE_PRESENTATION_ACKED = "presentation_acked"
+    STATE_ACKNOWLEDGED = "presentation_acknowledged"
 
     def __init__(
         self,
         *,
         presentation_exchange_id: str = None,
         connection_id: str = None,
+        prover_public_did: str = None,
         thread_id: str = None,
         initiator: str = None,
         role: str = None,
@@ -49,6 +50,7 @@ class THCFPresentationExchange(BaseExchangeRecord):
         presentation_proposal: dict = None,
         presentation_request: dict = None,
         presentation: dict = None,
+        acknowledgment_credential: str = None,
         verified: str = None,
         auto_present: bool = False,
         error_msg: str = None,
@@ -64,6 +66,8 @@ class THCFPresentationExchange(BaseExchangeRecord):
         self.state = state
         self.presentation_proposal = presentation_proposal
         self.presentation_request = presentation_request
+        self.prover_public_did = prover_public_did
+        self.acknowledgment_credential = acknowledgment_credential
         self.presentation = presentation
         self.verified = verified
         self.auto_present = auto_present
@@ -86,6 +90,8 @@ class THCFPresentationExchange(BaseExchangeRecord):
                 "initiator",
                 "presentation_proposal",
                 "presentation_request",
+                "acknowledgment_credential",
+                "prover_public_did",
                 "presentation",
                 "role",
                 "state",
@@ -171,7 +177,7 @@ class THCFPresentationExchangeSchema(BaseExchangeSchema):
     state = fields.Str(
         required=False,
         description="Present-proof exchange state",
-        example=THCFPresentationExchange.STATE_VERIFIED,
+        example=THCFPresentationExchange.STATE_ACKNOWLEDGED,
     )
     presentation_proposal = fields.Dict(
         required=False, description="Serialized presentation proposal message"
@@ -198,3 +204,5 @@ class THCFPresentationExchangeSchema(BaseExchangeSchema):
     error_msg = fields.Str(
         required=False, description="Error message", example="Invalid structure"
     )
+    prover_public_did = fields.Str(required=False)
+    acknowledgment_credential = fields.Str(required=False)

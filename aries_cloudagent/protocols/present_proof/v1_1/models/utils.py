@@ -9,7 +9,7 @@ async def retrieve_exchange(context, record_id, exception):
         exchange_record: THCFPresentationExchange = (
             await THCFPresentationExchange.retrieve_by_id(context, record_id)
         )
-    except StorageNotFoundError as err:
+    except StorageNotFoundError:
         raise exception(
             reason=f"Couldnt find exchange_record through this id {record_id}"
         )
@@ -30,7 +30,8 @@ async def retrieve_exchange_by_thread(context, connection_id, thread_id, excepti
         raise exception(
             f"""Couldnt find exchange_record through this: 
                 connection id: {connection_id}
-                thread id: {thread_id}"""
+                thread id: {thread_id}
+                Exception: {err.roll_up}"""
         )
     except StorageError as err:
         raise exception(err.roll_up)

@@ -72,6 +72,7 @@ async def create_credential(
     """
     credential_type = credential_request.get("credential_type")
     credential_values = credential_request.get("credential_values")
+
     if their_public_did is not None:
         assert_type(their_public_did, str)
         credential_values.update({"id": their_public_did})
