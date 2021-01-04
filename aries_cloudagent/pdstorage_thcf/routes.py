@@ -55,7 +55,7 @@ async def save_record(request: web.BaseRequest):
     try:
         payload_id = await save_string(context, body.get("payload"))
     except PDSError as err:
-        raise web.HTTPError(reason=err.roll_up)
+        raise web.HTTPInternalServerError(reason=err.roll_up)
 
     return web.json_response({"payload_id": payload_id})
 
@@ -71,7 +71,7 @@ async def get_record(request: web.BaseRequest):
     try:
         result = await load_string(context, payload_id)
     except PDSError as err:
-        raise web.HTTPError(reason=err.roll_up)
+        raise web.HTTPInternalServerError(reason=err.roll_up)
 
     return web.json_response({"payload": result})
 
@@ -95,6 +95,7 @@ async def get_record_from_agent(request: web.BaseRequest):
     message = ExchangeDataA(payload_dri=payload_id)
     await outbound_handler(message, connection_id=connection_id)
     return web.json_response({"message_sent": "success"})
+
 
 
 @docs(
@@ -191,7 +192,7 @@ async def get_settings(request: web.BaseRequest):
         assert isinstance(saved_pds, list), f"not list {saved_pds}, {type(saved_pds)}"
         print("get_settings saved_pds:", saved_pds)
     except StorageError as err:
-        raise web.HTTPError(reason=err.roll_up)
+        raise web.HTTPInternalServerError(reason=err.roll_up)
 
     response_message = {}
     for pds in saved_pds:
@@ -282,7 +283,7 @@ async def get_table_of_records(request: web.BaseRequest):
     try:
         result = await load_table(context, table)
     except PDSError as err:
-        raise web.HTTPError(reason=err.roll_up)
+        raise web.HTTPInternalServerError(reason=err.roll_up)
 
     return web.json_response(json.loads(result))
 
