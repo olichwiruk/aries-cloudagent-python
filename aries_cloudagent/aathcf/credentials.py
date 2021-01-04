@@ -7,6 +7,7 @@ from marshmallow import fields, Schema
 import json
 import inspect
 from aries_cloudagent.wallet.error import WalletError
+from aiohttp import web
 
 
 def print_line_and_file_at_callsite(indirection_number):
@@ -58,16 +59,23 @@ def assert_type_or(value, Type1, Type2):
 
 
 def raise_exception_invalid_state(exchange_record, valid_state, valid_role, exception):
+    error_message = None
     if exchange_record.state != valid_state:
-        raise exception(
+        error_message = (
             f"Invalid exchange state, should be {valid_state}\n"
             f"currently is {exchange_record.state}\n"
         )
     if exchange_record.role != valid_role:
-        raise exception(
+        error_message = (
             f"Invalid exchange role, should be {valid_role}\n"
             f"currently is {exchange_record.role}\n"
         )
+
+    print("Exchange record invalid state!,", error_message)
+    if issubclass(exception, web.HTTPException) and error_message is not None:
+        raise exception()
+    elif error_message is not None:
+        raise exception(error_message)
 
 
 def validate_schema(SchemaClass, schema: dict, exception=None, log=print):

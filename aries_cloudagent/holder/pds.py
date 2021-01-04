@@ -275,13 +275,14 @@ class PDSHolder(BaseHolder):
         except PDSNotFoundError as err:
             raise HolderError(err.roll_up)
 
-        active_pds = await pds_get_active_pds_name()
+        active_pds = await pds_get_active_pds_name(self.context)
         query = json.loads(query)
+        print(query)
         for i in query:
             try:
-                await DriStorageMatchTable.retrieve_by_id(self.context, query["dri"])
+                await DriStorageMatchTable.retrieve_by_id(self.context, i["dri"])
             except StorageNotFoundError:
-                await DriStorageMatchTable(query["dri"], active_pds).save(self.context)
+                await DriStorageMatchTable(i["dri"], active_pds).save(self.context)
 
         self.logger.info("Credentials GET CREDENTIALS %s", query)
 
