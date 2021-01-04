@@ -1,5 +1,5 @@
 from .base import BasePersonalDataStorage
-from .error import PersonalDataStorageNotFoundError
+from .error import PDSNotFoundError
 from .api import encode
 
 
@@ -31,3 +31,6 @@ class LocalPersonalDataStorage(BasePersonalDataStorage):
     async def load_table(self, table: str) -> str:
 
         return "tables not supported by active PDStorage "
+
+    async def ping(self) -> [bool, str]:
+        return [True, None]

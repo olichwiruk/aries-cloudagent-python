@@ -1,12 +1,12 @@
 from .base import BasePersonalDataStorage
 from .api import encode
-from .error import PersonalDataStorageError
+from .error import PDSError, PDSRecordNotFoundError
 
 import json
 import logging
 from urllib.parse import urlparse
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientConnectionError
 from aries_cloudagent.aathcf.credentials import assert_type
 import time
 from collections import OrderedDict
@@ -16,9 +16,13 @@ LOGGER = logging.getLogger(__name__)
 
 async def unpack_response(response):
     result: str = await response.text()
-    if response.status != 200:
+    if response.status == 404:
         LOGGER.error("Error Own Your Data PDS", result)
-        raise PersonalDataStorageError("Error Own Your Data PDS", result)
+        raise PDSRecordNotFoundError("Record not found in Own your data PDS", result)
+
+    elif response.status != 200:
+        LOGGER.error("Error Own Your Data PDS", result)
+        raise PDSError("Error Own Your Data PDS", result)
 
     return result
 
@@ -41,75 +45,66 @@ class OwnYourDataVault(BasePersonalDataStorage):
         return self.settings["usage_policy"]
 
     async def update_token(self):
+        parsed_url = urlparse(self.settings.get("api_url"))
+        self.api_url = "{url.scheme}://{url.netloc}".format(url=parsed_url)
+        LOGGER.debug("API URL OYD %s", self.api_url)
+
+        client_id = self.settings.get("client_id")
+        client_secret = self.settings.get("client_secret")
+        grant_type = self.settings.get("grant_type", "client_credentials")
+        scope = self.settings.get("scope")
+
+        if self.api_url is None:
+            raise PDSError("Please configure the plugin, api_url is empty")
+        if client_id is None:
+            raise PDSError("Please configure the plugin, client_id is empty")
+        if client_secret is None:
+            raise PDSError("Please configure the plugin, client_secret is empty")
+
+        async with ClientSession() as session:
+            body = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "grant_type": grant_type,
+            }
+            if scope is not None:
+                body["scope"] = scope
+            result = await session.post(
+                self.api_url + "/oauth/token",
+                json=body,
+            )
+            result = await unpack_response(result)
+            token = json.loads(result)
+            self.token = token
+            self.token_timestamp = time.time()
+            LOGGER.info("update token: %s", self.token)
 
         """
-        Check if the token expired
+        Download the usage policy
+
         """
 
+        url = f"{self.api_url}/api/meta/usage"
+        async with ClientSession() as session:
+            result = await session.get(
+                url,
+                headers={"Authorization": "Bearer " + self.token["access_token"]},
+            )
+            result = await unpack_response(result)
+            self.settings["usage_policy"] = result
+            LOGGER.debug("Usage policy %s", self.settings["usage_policy"])
+
+    async def update_token_when_expired(self):
         time_elapsed = time.time() - (self.token_timestamp - 10)
         if time_elapsed > float(self.token["expires_in"]):
-
-            parsed_url = urlparse(self.settings.get("api_url"))
-            self.api_url = "{url.scheme}://{url.netloc}".format(url=parsed_url)
-            LOGGER.debug("API URL OYD %s", self.api_url)
-
-            client_id = self.settings.get("client_id")
-            client_secret = self.settings.get("client_secret")
-            grant_type = self.settings.get("grant_type", "client_credentials")
-            scope = self.settings.get("scope")
-
-            if self.api_url is None:
-                raise PersonalDataStorageError(
-                    "Please configure the plugin, api_url is empty"
-                )
-            if client_id is None:
-                raise PersonalDataStorageError(
-                    "Please configure the plugin, client_id is empty"
-                )
-            if client_secret is None:
-                raise PersonalDataStorageError(
-                    "Please configure the plugin, client_secret is empty"
-                )
-
-            async with ClientSession() as session:
-                body = {
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "grant_type": grant_type,
-                }
-                if scope is not None:
-                    body["scope"] = scope
-                result = await session.post(
-                    self.api_url + "/oauth/token",
-                    json=body,
-                )
-                result = await unpack_response(result)
-                token = json.loads(result)
-                self.token = token
-                self.token_timestamp = time.time()
-                LOGGER.debug("update token: %s", self.token)
-
-            """
-            Download the usage policy
-
-            """
-
-            url = f"{self.api_url}/api/meta/usage"
-            async with ClientSession() as session:
-                result = await session.get(
-                    url,
-                    headers={"Authorization": "Bearer " + self.token["access_token"]},
-                )
-                result = await unpack_response(result)
-                self.settings["usage_policy"] = result
-                LOGGER.debug("Usage policy %s", self.settings["usage_policy"])
+            await self.update_token()
 
     async def load(self, dri: str) -> str:
         """
         TODO: Errors checking
         """
         assert_type(dri, str)
-        await self.update_token()
+        await self.update_token_when_expired()
 
         url = f"{self.api_url}/api/data/{dri}?p=dri&f=plain"
         async with ClientSession() as session:
@@ -134,7 +129,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
         """
         assert_type(record, str)
         assert_type(metadata, str)
-        await self.update_token()
+        await self.update_token_when_expired()
 
         table = self.settings.get("repo")
         table = table if table is not None else "dip.data"
@@ -183,7 +178,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
 
     async def load_table(self, table: str) -> str:
         assert_type(table, str)
-        await self.update_token()
+        await self.update_token_when_expired()
 
         url = f"{self.api_url}/api/data?table=dip.data.{table}&f=plain"
         LOGGER.debug("OYD LOAD TABLE url [ %s ]", url)
@@ -195,3 +190,13 @@ class OwnYourDataVault(BasePersonalDataStorage):
             LOGGER.debug("OYD LOAD TABLE result: [ %s ]", result)
 
         return result
+
+    async def ping(self) -> [bool, str]:
+        try:
+            await self.update_token()
+        except ClientConnectionError as err:
+            return [False, str(err)]
+        except PDSError as err:
+            return [False, str(err)]
+
+        return [True, None]

@@ -13,7 +13,7 @@ from aiohttp_apispec import (
 from marshmallow import fields, validate, Schema
 from .base import BasePersonalDataStorage
 from .api import load_string, save_string, load_table
-from .error import PersonalDataStorageError
+from .error import PDSError
 from ..connections.models.connection_record import ConnectionRecord
 from ..wallet.error import WalletError
 from ..storage.error import StorageNotFoundError, StorageError
@@ -54,7 +54,7 @@ async def save_record(request: web.BaseRequest):
 
     try:
         payload_id = await save_string(context, body.get("payload"))
-    except PersonalDataStorageError as err:
+    except PDSError as err:
         raise web.HTTPError(reason=err.roll_up)
 
     return web.json_response({"payload_id": payload_id})
@@ -70,7 +70,7 @@ async def get_record(request: web.BaseRequest):
 
     try:
         result = await load_string(context, payload_id)
-    except PersonalDataStorageError as err:
+    except PDSError as err:
         raise web.HTTPError(reason=err.roll_up)
 
     return web.json_response({"payload": result})
@@ -134,6 +134,7 @@ async def set_settings(request: web.BaseRequest):
     # get all pds configurations from the user's input json
     # and either update all specified instances or create new instances
     # for types which are not existent
+    user_msg = {}
     for type in settings:
         per_type_setting = settings.get(type)
         instance_name = per_type_setting.get("optional_instance_name", "default")
@@ -168,8 +169,14 @@ async def set_settings(request: web.BaseRequest):
             BasePersonalDataStorage, {"personal_storage_type": (type, instance_name)}
         )
         personal_storage.settings.update(per_type_setting)
+        connected, exception = await personal_storage.ping()
 
-    return web.json_response({"success": "settings_updated"})
+        user_msg[type] = {}
+        user_msg[type]["connected"] = connected
+        if exception is not None:
+            user_msg[type]["exception"] = exception
+
+    return web.json_response({"success": "True", "status": user_msg})
 
 
 @docs(
@@ -274,10 +281,15 @@ async def get_table_of_records(request: web.BaseRequest):
 
     try:
         result = await load_table(context, table)
-    except PersonalDataStorageError as err:
+    except PDSError as err:
         raise web.HTTPError(reason=err.roll_up)
 
     return web.json_response(json.loads(result))
+
+
+@docs(tags=["Swagger"], summary="Get agent's swagger schema in json format")
+async def get_swagger_schema(request: web.BaseRequest):
+    return web.json_response(request.app._state["swagger_dict"])
 
 
 async def register(app: web.Application):
@@ -311,5 +323,6 @@ async def register(app: web.Application):
                 get_table_of_records,
                 allow_head=False,
             ),
+            web.get("/swagger", get_swagger_schema, allow_head=False),
         ]
     )

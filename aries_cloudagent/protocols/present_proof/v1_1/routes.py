@@ -26,9 +26,15 @@ import logging
 import collections
 from aries_cloudagent.pdstorage_thcf.api import load_table
 from aries_cloudagent.holder.pds import CREDENTIALS_TABLE
-from aries_cloudagent.pdstorage_thcf.error import PersonalDataStorageError
+from aries_cloudagent.pdstorage_thcf.error import PDSError
+from ...issue_credential.v1_1.utils import create_credential
+from aries_cloudagent.protocols.issue_credential.v1_1.routes import (
+    routes_get_public_did,
+)
 
 LOG = logging.getLogger(__name__).info
+
+from .messages.acknowledge_proof import AcknowledgeProof
 
 
 class PresentationRequestAPISchema(OpenAPISchema):
@@ -49,6 +55,11 @@ class RetrieveExchangeQuerySchema(OpenAPISchema):
     initiator = fields.Str(required=False)
     role = fields.Str(required=False)
     state = fields.Str(required=False)
+
+
+class AcknowledgeProofSchema(OpenAPISchema):
+    exchange_record_id = fields.Str(required=True)
+    decision = fields.Str(required=True)
 
 
 @docs(tags=["present-proof"], summary="Sends a proof presentation")
@@ -84,7 +95,16 @@ async def request_presentation_api(request: web.BaseRequest):
 
     LOG("exchange_record %s", exchange_record)
     await exchange_record.save(context)
-    return web.json_response({"thread_id": exchange_record.thread_id})
+
+    return web.json_response(
+        {
+            "success": True,
+            "message": "proof sent and exchange updated",
+            "exchange_id": exchange_record._id,
+            "thread_id": message._thread_id,
+            "connection_id": connection_id,
+        }
+    )
 
 
 @docs(tags=["present-proof"], summary="Send a credential presentation")
@@ -134,8 +154,10 @@ async def present_proof_api(request: web.BaseRequest):
     except HolderError as err:
         raise web.HTTPInternalServerError(reason=err.roll_up)
 
-    print("Presentation present proof api:::::", presentation)
-    message = PresentProof(credential_presentation=presentation)
+    public_did = await routes_get_public_did(context)
+    message = PresentProof(
+        credential_presentation=presentation, prover_public_did=public_did
+    )
     message.assign_thread_id(exchange_record.thread_id)
     await outbound_handler(message, connection_id=connection_record.connection_id)
 
@@ -145,7 +167,63 @@ async def present_proof_api(request: web.BaseRequest):
     )
     await exchange_record.save(context)
 
-    return web.json_response("success, proof sent and exchange updated")
+    return web.json_response(
+        {
+            "success": True,
+            "message": "proof sent and exchange updated",
+            "exchange_id": exchange_record._id,
+        }
+    )
+
+
+@docs(tags=["present-proof"], summary="retrieve exchange record")
+@request_schema(AcknowledgeProofSchema())
+async def acknowledge_proof(request: web.BaseRequest):
+    context = request.app["request_context"]
+    outbound_handler = request.app["outbound_message_router"]
+    body = await request.json()
+
+    exchange_record: THCFPresentationExchange = await retrieve_exchange(
+        context, body.get("exchange_record_id"), web.HTTPNotFound
+    )
+
+    raise_exception_invalid_state(
+        exchange_record,
+        THCFPresentationExchange.STATE_PRESENTATION_RECEIVED,
+        THCFPresentationExchange.ROLE_VERIFIER,
+        web.HTTPBadRequest,
+    )
+
+    connection_record: ConnectionRecord = await retrieve_connection(
+        context, exchange_record.connection_id
+    )
+
+    credential = await create_credential(
+        context,
+        {
+            "credential_type": "ProofAcknowledgment",
+            "credential_values": {
+                "decision": body.get("decision"),
+            },
+        },
+        their_public_did=exchange_record.prover_public_did,
+        exception=web.HTTPError,
+    )
+
+    message = AcknowledgeProof(credential=credential)
+    message.assign_thread_id(exchange_record.thread_id)
+    await outbound_handler(message, connection_id=connection_record.connection_id)
+
+    exchange_record.acknowledgment_credential = credential
+    exchange_record.state = exchange_record.STATE_ACKNOWLEDGED
+    await exchange_record.save(context)
+    return web.json_response(
+        {
+            "success": True,
+            "message": "ack sent and exchange record updated",
+            "exchange_record_id": exchange_record._id,
+        }
+    )
 
 
 @docs(tags=["present-proof"], summary="retrieve exchange record")
@@ -154,10 +232,6 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
     context = request.app["request_context"]
 
     records = await THCFPresentationExchange.query(context, tag_filter=request.query)
-
-    """
-    Serialize the result into a json format
-    """
 
     result = []
     for i in records:
@@ -176,8 +250,8 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
             credentials,
         )
         credentials = {}
-    except PersonalDataStorageError as err:
-        LOG("PersonalDataStorageError %s", err.roll_up)
+    except PDSError as err:
+        LOG("PDSError %s", err.roll_up)
         credentials = {}
 
     """
@@ -246,6 +320,10 @@ async def register(app: web.Application):
             web.post(
                 "/present-proof/present",
                 present_proof_api,
+            ),
+            web.post(
+                "/present-proof/acknowledge",
+                acknowledge_proof,
             ),
             web.get(
                 "/present-proof/exchange/record",

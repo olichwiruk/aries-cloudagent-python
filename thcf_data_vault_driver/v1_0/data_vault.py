@@ -1,6 +1,6 @@
 from aries_cloudagent.pdstorage_thcf.base import PersonalDataStorage
 from aries_cloudagent.pdstorage_thcf.error import (
-    PersonalDataStorageNotFoundError,
+    PDSNotFoundError,
 )
 from aiohttp import ClientSession, FormData
 from aries_cloudagent.config.injection_context import InjectionContext

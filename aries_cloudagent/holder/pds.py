@@ -16,7 +16,7 @@ from aries_cloudagent.aathcf.credentials import (
 )
 from .base import BaseHolder, HolderError
 from aries_cloudagent.pdstorage_thcf.api import load_string, load_table, save_string
-from aries_cloudagent.pdstorage_thcf.error import PersonalDataStorageNotFoundError
+from aries_cloudagent.pdstorage_thcf.error import PDSNotFoundError
 
 CREDENTIALS_TABLE = "credentials"
 
@@ -38,7 +38,7 @@ class PDSHolder(BaseHolder):
         """
         try:
             credential = await load_string(self.context, credential_id)
-        except PersonalDataStorageNotFoundError as err:
+        except PDSNotFoundError as err:
             raise HolderError(err.roll_up)
 
         return credential
@@ -249,7 +249,7 @@ class PDSHolder(BaseHolder):
                 json.dumps(credential_data),
                 metadata=json.dumps({"table": CREDENTIALS_TABLE}),
             )
-        except PersonalDataStorageNotFoundError as err:
+        except PDSNotFoundError as err:
             raise HolderError(err.roll_up)
         return record_id
 
@@ -263,7 +263,7 @@ class PDSHolder(BaseHolder):
         """
         try:
             query = await load_table(self.context, CREDENTIALS_TABLE)
-        except PersonalDataStorageNotFoundError as err:
+        except PDSNotFoundError as err:
             raise HolderError(err.roll_up)
 
         query = json.loads(query)

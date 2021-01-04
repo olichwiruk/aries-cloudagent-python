@@ -1,6 +1,6 @@
 from .base import BasePersonalDataStorage
-from .error import PersonalDataStorageNotFoundError
-from aiohttp import ClientSession, FormData
+from .error import PDSNotFoundError
+from aiohttp import ClientSession, FormData, ClientConnectionError
 import json
 import logging
 
@@ -53,7 +53,7 @@ class DataVault(BasePersonalDataStorage):
         data.add_field("file", record, filename="data", content_type="application/json")
         url = f"{self.settings['api_url']}{API_ENDPOINT}"
         LOGGER.info(
-            f"""DataVault.save: 
+            f"""DataVault.save:
                 url: {url}
                 id: {id}
                 settings: {self.settings}
@@ -69,4 +69,16 @@ class DataVault(BasePersonalDataStorage):
 
     async def load_table(self, table: str) -> str:
 
-        return "tables not supported by active PDStorage "
+        return "tables not supported by active PDStorage"
+
+    async def ping(self) -> [bool, str]:
+        """
+        Returns: true if we connected at all, false if service is not responding.
+                 and additional info about the failure
+        """
+        try:
+            await self.load("ping")
+        except ClientConnectionError as err:
+            return [False, str(err)]
+
+        return [True, None]
