@@ -186,7 +186,7 @@ async def credentials_list(request: web.BaseRequest):
     except HolderError as err:
         raise web.HTTPBadRequest(reason=err.roll_up) from err
 
-    return web.json_response({"result": credentials})
+    return web.json_response({"success": True, "result": credentials})
 
 
 class IndyCredentialsListQueryStringSchema(OpenAPISchema):
