@@ -156,7 +156,7 @@ async def retrieve_credential_exchange_endpoint(request: web.BaseRequest):
     for i in records:
         result.append(i.serialize())
 
-    return web.json_response(result)
+    return web.json_response({"success": True, "result": result})
 
 
 async def register(app: web.Application):

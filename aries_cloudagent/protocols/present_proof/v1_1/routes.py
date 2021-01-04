@@ -322,7 +322,7 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
             ):
                 rec["list_of_matching_credentials"].append(cred["dri"])
 
-    return web.json_response(result)
+    return web.json_response({"success": True, "result": result})
 
 
 async def register(app: web.Application):
