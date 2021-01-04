@@ -27,6 +27,13 @@ async def unpack_response(response):
     return result
 
 
+def get_delimiter(parameter_count_in):
+    if parameter_count_in == 0:
+        return "?"
+    else:
+        return "&"
+
+
 class OwnYourDataVault(BasePersonalDataStorage):
     def __init__(self):
         super().__init__()
@@ -176,12 +183,28 @@ class OwnYourDataVault(BasePersonalDataStorage):
 
         return dri_value
 
-    async def load_table(self, table: str) -> str:
-        assert_type(table, str)
+    async def load_multiple(
+        self, *, table: str = None, oca_schema_base_dri: str = None
+    ) -> str:
         await self.update_token_when_expired()
+        url = f"{self.api_url}/api/data"
 
-        url = f"{self.api_url}/api/data?table=dip.data.{table}&f=plain"
-        LOGGER.debug("OYD LOAD TABLE url [ %s ]", url)
+        parameter_count = 0
+
+        if table is not None:
+            url = url + get_delimiter(parameter_count) + f"table=dip.data.{table}"
+            parameter_count += 1
+        if oca_schema_base_dri is not None:
+            url = (
+                url
+                + get_delimiter(parameter_count)
+                + f"schema_dri={oca_schema_base_dri}"
+            )
+            parameter_count += 1
+
+        url = url + get_delimiter(parameter_count) + "f=plain"
+
+        LOGGER.info("OYD LOAD TABLE url [ %s ]", url)
         async with ClientSession() as session:
             result = await session.get(
                 url, headers={"Authorization": "Bearer " + self.token["access_token"]}

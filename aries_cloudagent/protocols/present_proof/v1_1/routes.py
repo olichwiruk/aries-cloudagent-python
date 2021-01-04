@@ -24,7 +24,7 @@ from .messages.present_proof import PresentProof
 from .models.utils import retrieve_exchange
 import logging
 import collections
-from aries_cloudagent.pdstorage_thcf.api import load_table
+from aries_cloudagent.pdstorage_thcf.api import load_multiple
 from aries_cloudagent.holder.pds import CREDENTIALS_TABLE
 from aries_cloudagent.pdstorage_thcf.error import PDSError
 from ...issue_credential.v1_1.utils import create_credential
@@ -258,7 +258,7 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
     """
 
     try:
-        credentials = await load_table(context, CREDENTIALS_TABLE)
+        credentials = await load_multiple(context, table=CREDENTIALS_TABLE)
         credentials = json.loads(credentials)
     except json.JSONDecodeError:
         LOG(

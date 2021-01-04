@@ -62,8 +62,9 @@ async def save_string(context, payload: str, metadata="{}") -> str:
     return payload_id
 
 
-async def load_table(context, table: str) -> str:
-    assert_type(table, str)
+async def load_multiple(
+    context, *, table: str = None, oca_schema_base_dri: str = None
+) -> str:
 
     active_pds_name = await pds_get_active_pds_name(context)
 
@@ -71,7 +72,9 @@ async def load_table(context, table: str) -> str:
         BasePersonalDataStorage, {"personal_storage_type": active_pds_name}
     )
 
-    result = await pds.load_table(table)
+    result = await pds.load_multiple(
+        table=table, oca_schema_base_dri=oca_schema_base_dri
+    )
 
     assert_type(result, str)
     return result
