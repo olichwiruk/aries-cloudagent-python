@@ -12,7 +12,7 @@ from aiohttp_apispec import (
 
 from marshmallow import fields, validate, Schema
 from .base import BasePersonalDataStorage
-from .api import load_string, save_string, load_table
+from .api import load_string, save_string, load_multiple
 from .error import PDSError
 from ..connections.models.connection_record import ConnectionRecord
 from ..wallet.error import WalletError
@@ -95,7 +95,6 @@ async def get_record_from_agent(request: web.BaseRequest):
     message = ExchangeDataA(payload_dri=payload_id)
     await outbound_handler(message, connection_id=connection_id)
     return web.json_response({"message_sent": "success"})
-
 
 
 @docs(
@@ -281,7 +280,7 @@ async def get_table_of_records(request: web.BaseRequest):
     table = request.match_info["table"]
 
     try:
-        result = await load_table(context, table)
+        result = await load_multiple(context, table=table)
     except PDSError as err:
         raise web.HTTPInternalServerError(reason=err.roll_up)
 

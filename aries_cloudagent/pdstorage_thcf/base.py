@@ -15,7 +15,9 @@ class BasePersonalDataStorage(ABC):
         """Returns: data represented by id."""
 
     @abstractmethod
-    async def load_table(self, table: str) -> str:
+    async def load_multiple(
+        self, *, table: str = None, oca_schema_base_dri: str = None
+    ) -> str:
         """Load all records from a table."""
 
     @abstractmethod
