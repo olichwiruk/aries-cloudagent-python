@@ -15,8 +15,17 @@ from aries_cloudagent.aathcf.credentials import (
     verify_proof,
 )
 from .base import BaseHolder, HolderError
-from aries_cloudagent.pdstorage_thcf.api import load_string, load_table, save_string
+from aries_cloudagent.pdstorage_thcf.api import (
+    load_multiple,
+    load_string,
+    pds_get_active_pds_name,
+    save_string,
+)
 from aries_cloudagent.pdstorage_thcf.error import PDSNotFoundError
+from aries_cloudagent.pdstorage_thcf.models.table_that_matches_dris_with_pds import (
+    DriStorageMatchTable,
+)
+from aries_cloudagent.storage.error import StorageNotFoundError
 
 CREDENTIALS_TABLE = "credentials"
 
@@ -262,11 +271,17 @@ class PDSHolder(BaseHolder):
 
         """
         try:
-            query = await load_table(self.context, CREDENTIALS_TABLE)
+            query = await load_multiple(self.context, table=CREDENTIALS_TABLE)
         except PDSNotFoundError as err:
             raise HolderError(err.roll_up)
 
+        active_pds = await pds_get_active_pds_name()
         query = json.loads(query)
+        for i in query:
+            try:
+                await DriStorageMatchTable.retrieve_by_id(self.context, query["dri"])
+            except StorageNotFoundError:
+                await DriStorageMatchTable(query["dri"], active_pds).save(self.context)
 
         self.logger.info("Credentials GET CREDENTIALS %s", query)
 

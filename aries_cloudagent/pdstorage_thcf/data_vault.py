@@ -67,9 +67,11 @@ class DataVault(BasePersonalDataStorage):
 
         return response_json["content_dri"]
 
-    async def load_table(self, table: str) -> str:
+    async def load_multiple(
+        self, *, table: str = None, oca_schema_base_dri: str = None
+    ) -> str:
 
-        return "tables not supported by active PDStorage"
+        assert not "Load multiple not supported by active PDS"
 
     async def ping(self) -> [bool, str]:
         """
