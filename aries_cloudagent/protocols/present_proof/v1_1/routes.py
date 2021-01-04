@@ -35,6 +35,7 @@ from aries_cloudagent.protocols.issue_credential.v1_1.routes import (
 LOG = logging.getLogger(__name__).info
 
 from .messages.acknowledge_proof import AcknowledgeProof
+from collections import OrderedDict
 
 
 class PresentationRequestAPISchema(OpenAPISchema):
@@ -59,7 +60,7 @@ class RetrieveExchangeQuerySchema(OpenAPISchema):
 
 class AcknowledgeProofSchema(OpenAPISchema):
     exchange_record_id = fields.Str(required=True)
-    decision = fields.Str(required=True)
+    status = fields.Boolean(required=True)
 
 
 @docs(tags=["present-proof"], summary="Sends a proof presentation")
@@ -177,14 +178,14 @@ async def present_proof_api(request: web.BaseRequest):
 
 
 @docs(tags=["present-proof"], summary="retrieve exchange record")
-@request_schema(AcknowledgeProofSchema())
+@querystring_schema(AcknowledgeProofSchema())
 async def acknowledge_proof(request: web.BaseRequest):
     context = request.app["request_context"]
     outbound_handler = request.app["outbound_message_router"]
-    body = await request.json()
+    query = request.query
 
     exchange_record: THCFPresentationExchange = await retrieve_exchange(
-        context, body.get("exchange_record_id"), web.HTTPNotFound
+        context, query.get("exchange_record_id"), web.HTTPNotFound
     )
 
     raise_exception_invalid_state(
@@ -198,23 +199,26 @@ async def acknowledge_proof(request: web.BaseRequest):
         context, exchange_record.connection_id
     )
 
+    print("STATUS:", str(query.get("status")))
     credential = await create_credential(
         context,
         {
             "credential_type": "ProofAcknowledgment",
             "credential_values": {
-                "decision": body.get("decision"),
+                "status": str(query.get("status")),
             },
         },
         their_public_did=exchange_record.prover_public_did,
-        exception=web.HTTPError,
+        exception=web.HTTPInternalServerError,
     )
 
     message = AcknowledgeProof(credential=credential)
     message.assign_thread_id(exchange_record.thread_id)
     await outbound_handler(message, connection_id=connection_record.connection_id)
 
-    exchange_record.acknowledgment_credential = credential
+    exchange_record.acknowledgment_credential = json.loads(
+        credential, object_pairs_hook=OrderedDict
+    )
     exchange_record.state = exchange_record.STATE_ACKNOWLEDGED
     await exchange_record.save(context)
     return web.json_response(
@@ -224,6 +228,18 @@ async def acknowledge_proof(request: web.BaseRequest):
             "exchange_record_id": exchange_record._id,
         }
     )
+
+
+@docs(tags=["PersonalDataStorage"])
+async def debug_endpoint(request: web.BaseRequest):
+    context = request.app["request_context"]
+    record = THCFPresentationExchange()
+    await record.set_ack_cred(context, OrderedDict({"data": "abc"}))
+    # await record.store_presentation(context, OrderedDict({"data": "abc"}))
+    response = await record.get_ack_cred(context)
+    print(response)
+    # response = await record.get_presentation(context)
+    # print(response)
 
 
 @docs(tags=["present-proof"], summary="retrieve exchange record")
@@ -330,6 +346,7 @@ async def register(app: web.Application):
                 retrieve_credential_exchange_api,
                 allow_head=False,
             ),
+            web.post("/present-proof/debug", debug_endpoint),
         ]
     )
 

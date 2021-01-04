@@ -67,7 +67,7 @@ async def issue_credential(request: web.BaseRequest):
         context,
         request,
         their_public_did=exchange.their_public_did,
-        exception=web.HTTPError,
+        exception=web.HTTPInternalServerError,
     )
 
     LOG("CREDENTIAL %s", credential)
