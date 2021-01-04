@@ -24,10 +24,10 @@ class ExchangeDataAHandler(BaseHandler):
 
         try:
             payload = await load_string(context, payload_dri)
-            if payload == None:
-                raise PDSNotFoundError
+            if payload is None:
+                raise PDSNotFoundError(f"Data with dri {payload_dri} not found")
         except PDSNotFoundError as err:
-            LOGGER.warning("TODO: ExchangeDataAHandler ProblemReport %s", err.roll_up)
+            LOGGER.warning("%s", err.roll_up)
             return
 
         response = ExchangeDataB(payload=payload, payload_dri=payload_dri)

@@ -58,7 +58,7 @@ async def create_credential(
     credential_request,
     *,
     their_public_did: str = None,
-    exception=web.HTTPError,
+    exception=web.HTTPInternalServerError,
 ) -> dict:
     """
     Create Credential utility wrapper which handles exceptions

@@ -41,7 +41,9 @@ class AcknowledgeProofHandler(BaseHandler):
             HandlerException,
         )
 
-        exchange_record.acknowledgment_credential = context.message.credential
+        exchange_record.acknowledgment_credential = json.loads(
+            context.message.credential, object_pairs_hook=OrderedDict
+        )
         exchange_record.state = exchange_record.STATE_ACKNOWLEDGED
         await exchange_record.save(context)
 
