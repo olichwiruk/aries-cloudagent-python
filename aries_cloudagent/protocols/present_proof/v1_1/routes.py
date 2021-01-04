@@ -188,6 +188,7 @@ async def acknowledge_proof(request: web.BaseRequest):
         context, query.get("exchange_record_id"), web.HTTPNotFound
     )
 
+    # raise web.HTTPBadRequest()
     raise_exception_invalid_state(
         exchange_record,
         THCFPresentationExchange.STATE_PRESENTATION_RECEIVED,
