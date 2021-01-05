@@ -57,7 +57,7 @@ async def save_record(request: web.BaseRequest):
     except PDSError as err:
         raise web.HTTPInternalServerError(reason=err.roll_up)
 
-    return web.json_response({"payload_id": payload_id})
+    return web.json_response({"success": True, "payload_id": payload_id})
 
 
 @docs(
@@ -73,7 +73,7 @@ async def get_record(request: web.BaseRequest):
     except PDSError as err:
         raise web.HTTPInternalServerError(reason=err.roll_up)
 
-    return web.json_response({"payload": result})
+    return web.json_response({"success": True, "payload": result})
 
 
 @docs(
@@ -94,7 +94,7 @@ async def get_record_from_agent(request: web.BaseRequest):
     outbound_handler = request.app["outbound_message_router"]
     message = ExchangeDataA(payload_dri=payload_id)
     await outbound_handler(message, connection_id=connection_id)
-    return web.json_response({"message_sent": "success"})
+    return web.json_response({"success": True})
 
 
 @docs(
@@ -197,6 +197,7 @@ async def get_settings(request: web.BaseRequest):
     for pds in saved_pds:
         response_message.update({f"{pds.type}, {pds.name}": pds.settings})
 
+    # TODO "success": True,
     return web.json_response(response_message)
 
 
@@ -239,7 +240,9 @@ async def set_active_storage_type(request: web.BaseRequest):
     await active_pds.save(context)
     await pds_to_activate.save(context)
 
-    return web.json_response({"success_type_exists": f"{pds_type}, {instance_name}"})
+    return web.json_response(
+        {"success": True, "success_type_exists": f"{pds_type}, {instance_name}"}
+    )
 
 
 @docs(
@@ -265,26 +268,36 @@ async def get_storage_types(request: web.BaseRequest):
 
     return web.json_response(
         {
+            "success": True,
             "active": f"{active_pds.type}, {active_pds.name}",
             "types": registered_type_names,
         }
     )
 
 
+class GetMultipleRecordsSchema(Schema):
+    table = fields.Str(required=False)
+    oca_schema_base_dri = fields.Str(required=False)
+
+
 @docs(
     tags=["PersonalDataStorage"],
     summary="Retrieve data from a public data storage using data id",
 )
-async def get_table_of_records(request: web.BaseRequest):
+@querystring_schema(GetMultipleRecordsSchema)
+async def get_multiple_records(request: web.BaseRequest):
     context = request.app["request_context"]
-    table = request.match_info["table"]
+    table = request.query.get("table")
+    oca_schema_base_dri = request.query.get("oca_schema_base_dri")
 
     try:
-        result = await load_multiple(context, table=table)
+        result = await load_multiple(
+            context, table=table, oca_schema_base_dri=oca_schema_base_dri
+        )
     except PDSError as err:
         raise web.HTTPInternalServerError(reason=err.roll_up)
 
-    return web.json_response(json.loads(result))
+    return web.json_response({"success": True, "result": json.loads(result)})
 
 
 @docs(tags=["Swagger"], summary="Get agent's swagger schema in json format")
@@ -319,8 +332,8 @@ async def register(app: web.Application):
                 allow_head=False,
             ),
             web.get(
-                "/pds/table/{table}",
-                get_table_of_records,
+                "/pdsa/multiple",
+                get_multiple_records,
                 allow_head=False,
             ),
             web.get("/swagger", get_swagger_schema, allow_head=False),

@@ -8,6 +8,8 @@ from .....messaging.models.base_record import BaseExchangeRecord, BaseExchangeSc
 from .....messaging.valid import UUIDFour
 from aries_cloudagent.aathcf.credentials import PresentationRequestSchema
 from aries_cloudagent.config.injection_context import InjectionContext
+from aries_cloudagent.pdstorage_thcf.api import load_string, save_string
+from collections import OrderedDict
 
 
 class THCFPresentationExchange(BaseExchangeRecord):
@@ -51,6 +53,7 @@ class THCFPresentationExchange(BaseExchangeRecord):
         presentation_request: dict = None,
         presentation: dict = None,
         acknowledgment_credential: str = None,
+        acknowledgment_credential_dri: str = None,
         verified: str = None,
         auto_present: bool = False,
         error_msg: str = None,
@@ -73,6 +76,7 @@ class THCFPresentationExchange(BaseExchangeRecord):
         self.auto_present = auto_present
         self.error_msg = error_msg
         self.trace = trace
+        self.acknowledgment_credential_dri = None
 
     @property
     def presentation_exchange_id(self) -> str:
@@ -91,6 +95,7 @@ class THCFPresentationExchange(BaseExchangeRecord):
                 "presentation_proposal",
                 "presentation_request",
                 "acknowledgment_credential",
+                "acknowledgment_credential_dri",
                 "prover_public_did",
                 "presentation",
                 "role",
@@ -137,6 +142,19 @@ class THCFPresentationExchange(BaseExchangeRecord):
     def __eq__(self, other: Any) -> bool:
         """Comparison between records."""
         return super().__eq__(other)
+
+    async def acknowledgment_credential_pds_set(self, context, credential: OrderedDict):
+        metadata = {
+            # "oca_schema_dri": params["oca_schema_dri"],
+            "table": "acknowledgment",
+        }
+        dri = await save_string(context, credential, metadata=metadata)
+        self.acknowledgment_credential_dri = dri
+
+    async def acknowledgment_credential_pds_get(self, context):
+        assert self.acknowledgment_credential_dri is not None
+        credential = await load_string(context, self.acknowledgment_credential)
+        return credential
 
 
 class THCFPresentationExchangeSchema(BaseExchangeSchema):
@@ -205,4 +223,4 @@ class THCFPresentationExchangeSchema(BaseExchangeSchema):
         required=False, description="Error message", example="Invalid structure"
     )
     prover_public_did = fields.Str(required=False)
-    acknowledgment_credential = fields.Str(required=False)
+    acknowledgment_credential_dri = fields.Str(required=False)
