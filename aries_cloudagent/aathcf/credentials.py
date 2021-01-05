@@ -71,7 +71,6 @@ def raise_exception_invalid_state(exchange_record, valid_state, valid_role, exce
             f"currently is {exchange_record.role}\n"
         )
 
-    print("Exchange record invalid state!,", error_message)
     if issubclass(exception, web.HTTPException) and error_message is not None:
         raise exception()
     elif error_message is not None:
