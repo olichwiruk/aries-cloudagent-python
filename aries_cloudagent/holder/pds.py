@@ -17,9 +17,9 @@ from aries_cloudagent.aathcf.credentials import (
 from .base import BaseHolder, HolderError
 from aries_cloudagent.pdstorage_thcf.api import (
     load_multiple,
-    load_string,
-    pds_get_active_pds_name,
-    save_string,
+    pds_load,
+    pds_get_active_name,
+    pds_save,
 )
 from aries_cloudagent.pdstorage_thcf.error import PDSNotFoundError
 from aries_cloudagent.pdstorage_thcf.models.table_that_matches_dris_with_pds import (
@@ -46,7 +46,7 @@ class PDSHolder(BaseHolder):
 
         """
         try:
-            credential = await load_string(self.context, credential_id)
+            credential = await pds_load(self.context, credential_id)
         except PDSNotFoundError as err:
             raise HolderError(err.roll_up)
 
@@ -253,7 +253,7 @@ class PDSHolder(BaseHolder):
             raise HolderError("Proof is incorrect, could not verify")
 
         try:
-            record_id = await save_string(
+            record_id = await pds_save(
                 self.context,
                 json.dumps(credential_data),
                 metadata=json.dumps({"table": CREDENTIALS_TABLE}),
@@ -275,7 +275,7 @@ class PDSHolder(BaseHolder):
         except PDSNotFoundError as err:
             raise HolderError(err.roll_up)
 
-        active_pds = await pds_get_active_pds_name(self.context)
+        active_pds = await pds_get_active_name(self.context)
         query = json.loads(query)
         print(query)
         for i in query:
