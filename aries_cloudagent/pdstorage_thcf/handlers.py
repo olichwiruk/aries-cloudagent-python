@@ -1,4 +1,4 @@
-from .api import load_string, save_string
+from .api import pds_load, pds_save
 from .base import *
 from .error import PDSError, PDSNotFoundError
 from .message_types import ExchangeDataB, ExchangeDataA
@@ -23,7 +23,7 @@ class ExchangeDataAHandler(BaseHandler):
         payload_dri = context.message.payload_dri
 
         try:
-            payload = await load_string(context, payload_dri)
+            payload = await pds_load(context, payload_dri)
             if payload is None:
                 raise PDSNotFoundError(f"Data with dri {payload_dri} not found")
         except PDSNotFoundError as err:
@@ -52,7 +52,7 @@ class ExchangeDataBHandler(BaseHandler):
 
         """
         try:
-            payload_dri = await save_string(context, context.message.payload)
+            payload_dri = await pds_save(context, context.message.payload)
         except PDSError as err:
             raise err.roll_up
 

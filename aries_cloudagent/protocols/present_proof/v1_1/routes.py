@@ -24,7 +24,7 @@ from .messages.present_proof import PresentProof
 from .models.utils import retrieve_exchange
 import logging
 import collections
-from aries_cloudagent.pdstorage_thcf.api import load_multiple
+from aries_cloudagent.pdstorage_thcf.api import load_multiple, pds_load, pds_save
 from aries_cloudagent.holder.pds import CREDENTIALS_TABLE
 from aries_cloudagent.pdstorage_thcf.error import PDSError
 from ...issue_credential.v1_1.utils import create_credential
@@ -232,6 +232,9 @@ async def acknowledge_proof(request: web.BaseRequest):
 @docs(tags=["PersonalDataStorage"])
 async def debug_endpoint(request: web.BaseRequest):
     context = request.app["request_context"]
+    payload_id = await pds_save(context, {"data": "data"})
+    ret = await pds_load(context, payload_id)
+    print(ret)
     record = THCFPresentationExchange()
     await record.set_ack_cred(context, OrderedDict({"data": "abc"}))
     # await record.store_presentation(context, OrderedDict({"data": "abc"}))
