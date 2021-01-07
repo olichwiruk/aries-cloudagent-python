@@ -7,7 +7,7 @@ import logging
 from urllib.parse import urlparse
 
 from aiohttp import ClientSession, ClientConnectionError
-from aries_cloudagent.aathcf.credentials import assert_type
+from aries_cloudagent.aathcf.credentials import assert_type, assert_type_or
 import time
 from collections import OrderedDict
 
@@ -127,26 +127,29 @@ class OwnYourDataVault(BasePersonalDataStorage):
 
         return result_dict
 
-    async def save(self, record: str, metadata: str) -> str:
+    async def save(self, record, metadata: dict) -> str:
         """
         meta: {
             "table" - specifies the table name into which save the data
             "oca_schema_dri"
         }
         """
-        assert_type(record, str)
-        assert_type(metadata, str)
+        assert_type_or(record, str, dict)
+        assert_type(metadata, dict)
         await self.update_token_when_expired()
 
         table = self.settings.get("repo")
         table = table if table is not None else "dip.data"
 
-        meta = json.loads(metadata)
-        dri_value = encode(record)
+        meta = metadata
+        dri_value = None
 
-        record = {"content": record}
-        record["dri"] = dri_value
+        if isinstance(record, str):
+            dri_value = encode(record)
+        elif isinstance(record, dict):
+            dri_value = encode(json.dumps(record))
 
+        record = {"content": record, "dri": dri_value}
         LOGGER.debug("OYD save record %s metadata %s", record, meta)
         async with ClientSession() as session:
             """

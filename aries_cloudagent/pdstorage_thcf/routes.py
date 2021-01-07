@@ -12,7 +12,7 @@ from aiohttp_apispec import (
 
 from marshmallow import fields, validate, Schema
 from .base import BasePersonalDataStorage
-from .api import load_string, save_string, load_multiple
+from .api import pds_load, pds_save, load_multiple
 from .error import PDSError
 from ..connections.models.connection_record import ConnectionRecord
 from ..wallet.error import WalletError
@@ -53,7 +53,7 @@ async def save_record(request: web.BaseRequest):
     body = await request.json()
 
     try:
-        payload_id = await save_string(context, body.get("payload"))
+        payload_id = await pds_save(context, body.get("payload"))
     except PDSError as err:
         raise web.HTTPInternalServerError(reason=err.roll_up)
 
@@ -69,7 +69,7 @@ async def get_record(request: web.BaseRequest):
     payload_id = request.match_info["payload_id"]
 
     try:
-        result = await load_string(context, payload_id)
+        result = await pds_load(context, payload_id)
     except PDSError as err:
         raise web.HTTPInternalServerError(reason=err.roll_up)
 
@@ -332,7 +332,7 @@ async def register(app: web.Application):
                 allow_head=False,
             ),
             web.get(
-                "/pdsa/multiple",
+                "/pds/multiple/",
                 get_multiple_records,
                 allow_head=False,
             ),
