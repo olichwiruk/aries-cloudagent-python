@@ -96,7 +96,7 @@ async def create_credential(
     return credential
 
 
-async def create_credentiala_a(
+async def create_credential_a(
     context,
     credential_type,
     credential_values,
