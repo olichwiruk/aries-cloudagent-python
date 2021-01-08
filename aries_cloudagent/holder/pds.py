@@ -50,6 +50,8 @@ class PDSHolder(BaseHolder):
         except PDSNotFoundError as err:
             raise HolderError(err.roll_up)
 
+        credential = json.dumps(credential)
+        assert_type(credential, str)
         return credential
 
     async def delete_credential(self, credential_id: str):
@@ -122,8 +124,6 @@ class PDSHolder(BaseHolder):
             credential = await self.get_credential(credential_id)
         except HolderError as err:
             raise HolderError(f"credential_id {credential_id} is invalid {err.roll_up}")
-        assert_type(credential, str)
-        print(credential)
         credential = json.loads(credential, object_pairs_hook=OrderedDict)
         """
 

@@ -14,7 +14,7 @@ from marshmallow import fields
 from ....connections.models.connection_record import ConnectionRecord
 from ....holder.base import BaseHolder, HolderError
 from .models.presentation_exchange import THCFPresentationExchange
-from ....messaging.models.openapi import OpenAPISchema
+from ....messaging.models.openapi import OpenAPISchema, Schema
 from aries_cloudagent.protocols.issue_credential.v1_1.utils import retrieve_connection
 from aries_cloudagent.aathcf.credentials import (
     raise_exception_invalid_state,
@@ -24,7 +24,12 @@ from .messages.present_proof import PresentProof
 from .models.utils import retrieve_exchange
 import logging
 import collections
-from aries_cloudagent.pdstorage_thcf.api import load_multiple, pds_load, pds_save
+from aries_cloudagent.pdstorage_thcf.api import (
+    load_multiple,
+    pds_load,
+    pds_save,
+    pds_save_a,
+)
 from aries_cloudagent.holder.pds import CREDENTIALS_TABLE
 from aries_cloudagent.pdstorage_thcf.error import PDSError
 from ...issue_credential.v1_1.utils import create_credential
@@ -229,19 +234,77 @@ async def acknowledge_proof(request: web.BaseRequest):
     )
 
 
+class DebugEndpointSchema(OpenAPISchema):
+    # {DRI1: [{timestamp: 23423453453534, data: {...}},{}], DRI2: [{},{}], DRI3: [{},{}] }
+    #     {d: {456...}, t: Date.current.getMilliseconds()} } d - data; t - timestamp
+    oca_data = fields.Dict()
+
+
+# TODO: Delete DRI: When saving
+async def pds_oca_data_format_save(context, data):
+    ids_of_saved_schemas = {}
+    for oca_schema_base_dri in data:
+        if oca_schema_base_dri.startswith("DRI:"):
+            payload_id = await pds_save_a(
+                context,
+                data[oca_schema_base_dri],
+                oca_schema_dri=oca_schema_base_dri,
+            )
+            ids_of_saved_schemas[oca_schema_base_dri] = payload_id
+        else:
+            ids_of_saved_schemas[
+                oca_schema_base_dri
+            ] = "Invalid format, DRIs should start with 'DRI:'"
+
+    return ids_of_saved_schemas
+
+
+async def pds_oca_data_format_serialize_item_recursive(context, key, val):
+    new_val = val
+    if isinstance(val, dict):
+        new_val = await pds_oca_data_format_serialize_dict_recursive(context, val)
+    elif val.startswith("DRI:"):
+        new_val = await pds_load(context, val)
+        new_val = await pds_oca_data_format_serialize_dict_recursive(context, new_val)
+    return new_val
+
+
+async def pds_oca_data_format_serialize_dict_recursive(context, dct):
+    new_dict = {}
+    for k, v in dct.items():
+        new_dict[k] = await pds_oca_data_format_serialize_item_recursive(context, k, v)
+
+    return new_dict
+
+
 @docs(tags=["PersonalDataStorage"])
+@request_schema(DebugEndpointSchema)
 async def debug_endpoint(request: web.BaseRequest):
     context = request.app["request_context"]
-    payload_id = await pds_save(context, {"data": "data"})
+
+    data = {"data": "data"}
+    payload_id = await pds_save_a(context, data, oca_schema_dri="12345", table="test")
     ret = await pds_load(context, payload_id)
-    print(ret)
-    record = THCFPresentationExchange()
-    await record.set_ack_cred(context, OrderedDict({"data": "abc"}))
-    # await record.store_presentation(context, OrderedDict({"data": "abc"}))
-    response = await record.get_ack_cred(context)
-    print(response)
-    # response = await record.get_presentation(context)
-    # print(response)
+    assert ret == data
+
+    # body = await request.json()
+    # oca_data = body["oca_data"]
+    # print(oca_data)
+
+    data = {
+        "DRI:12345": {"t": "o", "p": {"address": "DRI:123456", "test_value": "ok"}},
+        "DRI:123456": {
+            "t": "o",
+            "p": {"second_dri": "DRI:1234567", "test_value": "ok"},
+        },
+        "DRI:1234567": {"t": "o", "p": {"third_dri": "DRI:123456", "test_value": "ok"}},
+        "1234567": {"t": "o", "p": {"third_dri": "DRI:123456", "test_value": "ok"}},
+    }
+
+    ids = await pds_oca_data_format_save(context, data)
+    serialized = await pds_oca_data_format_serialize_dict_recursive(context, data)
+
+    return web.json_response({"success": True, "result": ids, "serialized": serialized})
 
 
 @docs(tags=["present-proof"], summary="retrieve exchange record")

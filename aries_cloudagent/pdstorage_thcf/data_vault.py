@@ -3,6 +3,7 @@ from .error import PDSNotFoundError
 from aiohttp import ClientSession, FormData, ClientConnectionError
 import json
 import logging
+from collections import OrderedDict
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class DataVault(BasePersonalDataStorage):
         self.settings = {}
         # self.settings = {"api_url": "https://data-vault.argo.colossi.network"}
 
-    async def load(self, id: str) -> str:
+    async def load(self, id: str) -> dict:
         """
         Returns: None on record not found
         """
@@ -39,14 +40,14 @@ class DataVault(BasePersonalDataStorage):
 
         # seek errors
         try:
-            response_json = json.loads(response_text)
+            response_json = json.loads(response_text, object_pairs_hook=OrderedDict)
             if "errors" in response_json:
                 return None
         except json.JSONDecodeError:
             LOGGER.warning("Error found in data_vault load %s", response_text)
             pass
 
-        return response_text
+        return {"content": response_text}
 
     async def save(self, record: str, metadata: str) -> str:
         data = FormData()
