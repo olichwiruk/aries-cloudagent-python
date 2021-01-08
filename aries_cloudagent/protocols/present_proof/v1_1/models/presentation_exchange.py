@@ -8,7 +8,7 @@ from .....messaging.models.base_record import BaseExchangeRecord, BaseExchangeSc
 from .....messaging.valid import UUIDFour
 from aries_cloudagent.aathcf.credentials import PresentationRequestSchema
 from aries_cloudagent.config.injection_context import InjectionContext
-from aries_cloudagent.pdstorage_thcf.api import pds_load, pds_save
+from aries_cloudagent.pdstorage_thcf.api import pds_load, pds_save, pds_save_a
 from collections import OrderedDict
 
 
@@ -144,11 +144,7 @@ class THCFPresentationExchange(BaseExchangeRecord):
         return super().__eq__(other)
 
     async def acknowledgment_credential_pds_set(self, context, credential: OrderedDict):
-        metadata = {
-            # "oca_schema_dri": params["oca_schema_dri"],
-            "table": "acknowledgment",
-        }
-        dri = await pds_save(context, credential, metadata=metadata)
+        dri = await pds_save_a(context, credential, table="acknowledgment")
         self.acknowledgment_credential_dri = dri
 
     async def acknowledgment_credential_pds_get(self, context):
