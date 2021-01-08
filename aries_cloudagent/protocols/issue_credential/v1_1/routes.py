@@ -25,7 +25,7 @@ from aries_cloudagent.aathcf.credentials import raise_exception_invalid_state
 from aries_cloudagent.wallet.base import BaseWallet
 
 
-LOG = logging.getLogger(__name__).info
+LOGGER = logging.getLogger(__name__)
 
 
 class RequestCredentialSchema(OpenAPISchema):
@@ -70,7 +70,7 @@ async def issue_credential(request: web.BaseRequest):
         exception=web.HTTPInternalServerError,
     )
 
-    LOG("CREDENTIAL %s", credential)
+    LOGGER.debug("CREDENTIAL %s", credential)
     issue = CredentialIssue(credential=credential)
     issue.assign_thread_id(exchange.thread_id)
     await outbound_handler(issue, connection_id=connection.connection_id)
