@@ -14,13 +14,13 @@ class LocalPersonalDataStorage(BasePersonalDataStorage):
 
         self.settings = {"no_configuration_needed": "yes"}
 
-    async def load(self, id: str) -> str:
+    async def load(self, id: str) -> dict:
         """
         returns: None, on record not found
         """
         result = self.storage.get(id)
 
-        return result
+        return {"content": result}
 
     async def save(self, record, metadata: dict) -> str:
         result = encode(record)

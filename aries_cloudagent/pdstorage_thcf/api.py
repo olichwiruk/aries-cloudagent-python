@@ -9,6 +9,7 @@ from aries_cloudagent.storage.error import StorageNotFoundError
 from .models.table_that_matches_dris_with_pds import DriStorageMatchTable
 from aries_cloudagent.aathcf.credentials import assert_type, assert_type_or
 import json
+from collections import OrderedDict
 
 LOGGER = logging.getLogger(__name__)
 
@@ -58,15 +59,22 @@ async def pds_get_active(context):
     return pds
 
 
-async def pds_load(context, id: str) -> str:
+async def pds_load(context, id: str, *, with_meta: bool = False) -> dict:
     assert_type(id, str)
 
-    # plugin = table_that_matches_plugins_with_ids.get(id, None)
     match = await match_table_query_id(context, id)
     pds = await pds_get_by_name(context, match.pds_type)
     result = await pds.load(id)
 
-    return result
+    try:
+        result["content"] = json.loads(result["content"], object_pairs_hook=OrderedDict)
+    except json.JSONDecodeError:
+        pass
+
+    if with_meta:
+        return result
+    else:
+        return result["content"]
 
 
 async def pds_save(context, payload, metadata: str = "{}") -> str:
@@ -76,6 +84,20 @@ async def pds_save(context, payload, metadata: str = "{}") -> str:
     active_pds_name = await pds_get_active_name(context)
     pds = await pds_get_by_name(context, active_pds_name)
     payload_id = await pds.save(payload, json.loads(metadata))
+    payload_id = await match_save_save_record_id(context, payload_id, active_pds_name)
+
+    return payload_id
+
+
+async def pds_save_a(
+    context, payload, *, oca_schema_dri: str = None, table: str = None
+) -> str:
+    assert_type_or(payload, str, dict)
+
+    meta = {"table": table, "oca_schema_dri": oca_schema_dri}
+    active_pds_name = await pds_get_active_name(context)
+    pds = await pds_get_by_name(context, active_pds_name)
+    payload_id = await pds.save(payload, meta)
     payload_id = await match_save_save_record_id(context, payload_id, active_pds_name)
 
     return payload_id

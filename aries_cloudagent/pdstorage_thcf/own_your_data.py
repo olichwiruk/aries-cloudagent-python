@@ -106,7 +106,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
         if time_elapsed > float(self.token["expires_in"]):
             await self.update_token()
 
-    async def load(self, dri: str) -> str:
+    async def load(self, dri: str) -> dict:
         """
         TODO: Errors checking
         """
@@ -120,10 +120,10 @@ class OwnYourDataVault(BasePersonalDataStorage):
             )
             result = await unpack_response(result)
             result_dict: dict = json.loads(result, object_pairs_hook=OrderedDict)
-            result_dict = result_dict.get("content")
+        #     result_dict = result_dict.get("content")
 
-        if isinstance(result_dict, dict):
-            result_dict = json.dumps(result_dict)
+        # if isinstance(result_dict, dict):
+        #     result_dict = json.dumps(result_dict)
 
         return result_dict
 
@@ -149,7 +149,11 @@ class OwnYourDataVault(BasePersonalDataStorage):
         elif isinstance(record, dict):
             dri_value = encode(json.dumps(record))
 
-        record = {"content": record, "dri": dri_value}
+        record = {
+            "content": record,
+            "dri": dri_value,
+            "timestamp": int(round(time.time() * 1000)),  # current time in milliseconds
+        }
         LOGGER.debug("OYD save record %s metadata %s", record, meta)
         async with ClientSession() as session:
             """
