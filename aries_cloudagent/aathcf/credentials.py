@@ -59,20 +59,22 @@ def assert_type_or(value, Type1, Type2):
 
 
 def raise_exception_invalid_state(exchange_record, valid_state, valid_role, exception):
-    error_message = None
+    error_message = ""
     if exchange_record.state != valid_state:
-        error_message = (
+        print(
             f"Invalid exchange state, should be {valid_state}\n"
             f"currently is {exchange_record.state}\n"
         )
+        error_message += "Invalid exchange state. "
     if exchange_record.role != valid_role:
-        error_message = (
+        print(
             f"Invalid exchange role, should be {valid_role}\n"
             f"currently is {exchange_record.role}\n"
         )
+        error_message += "Invalid exchange role. "
 
     if issubclass(exception, web.HTTPException) and error_message is not None:
-        raise exception()
+        raise exception(reason=error_message)
     elif error_message is not None:
         raise exception(error_message)
 
