@@ -300,9 +300,9 @@ async def get_multiple_records(request: web.BaseRequest):
     return web.json_response({"success": True, "result": json.loads(result)})
 
 
-@docs(tags=["Swagger"], summary="Get agent's swagger schema in json format")
-async def get_swagger_schema(request: web.BaseRequest):
-    return web.json_response(request.app._state["swagger_dict"])
+# @docs(tags=["Swagger"], summary="Get agent's swagger schema in json format")
+# async def get_swagger_schema(request: web.BaseRequest):
+#     return web.json_response(request.app._state["swagger_dict"])
 
 
 async def register(app: web.Application):
@@ -336,6 +336,6 @@ async def register(app: web.Application):
                 get_multiple_records,
                 allow_head=False,
             ),
-            web.get("/swagger", get_swagger_schema, allow_head=False),
+            # web.get("/swagger", get_swagger_schema, allow_head=False),
         ]
     )
