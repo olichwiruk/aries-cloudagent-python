@@ -192,7 +192,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
 
     async def load_multiple(
         self, *, table: str = None, oca_schema_base_dri: str = None
-    ) -> str:
+    ):
         await self.update_token_when_expired()
         url = f"{self.api_url}/api/data"
 

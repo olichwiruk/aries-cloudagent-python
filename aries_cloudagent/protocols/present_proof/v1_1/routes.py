@@ -27,6 +27,7 @@ import collections
 from aries_cloudagent.pdstorage_thcf.api import (
     load_multiple,
     pds_load,
+    pds_oca_data_format_save,
     pds_save,
     pds_save_a,
 )
@@ -237,48 +238,11 @@ async def acknowledge_proof(request: web.BaseRequest):
 class DebugEndpointSchema(OpenAPISchema):
     # {DRI1: [{timestamp: 23423453453534, data: {...}},{}], DRI2: [{},{}], DRI3: [{},{}] }
     #     {d: {456...}, t: Date.current.getMilliseconds()} } d - data; t - timestamp
-    oca_data = fields.Dict()
-
-
-# TODO: Delete DRI: When saving
-async def pds_oca_data_format_save(context, data):
-    ids_of_saved_schemas = {}
-    for oca_schema_base_dri in data:
-        if oca_schema_base_dri.startswith("DRI:"):
-            payload_id = await pds_save_a(
-                context,
-                data[oca_schema_base_dri],
-                oca_schema_dri=oca_schema_base_dri,
-            )
-            ids_of_saved_schemas[oca_schema_base_dri] = payload_id
-        else:
-            ids_of_saved_schemas[
-                oca_schema_base_dri
-            ] = "Invalid format, DRIs should start with 'DRI:'"
-
-    return ids_of_saved_schemas
-
-
-async def pds_oca_data_format_serialize_item_recursive(context, key, val):
-    new_val = val
-    if isinstance(val, dict):
-        new_val = await pds_oca_data_format_serialize_dict_recursive(context, val)
-    elif val.startswith("DRI:"):
-        new_val = await pds_load(context, val)
-        new_val = await pds_oca_data_format_serialize_dict_recursive(context, new_val)
-    return new_val
-
-
-async def pds_oca_data_format_serialize_dict_recursive(context, dct):
-    new_dict = {}
-    for k, v in dct.items():
-        new_dict[k] = await pds_oca_data_format_serialize_item_recursive(context, k, v)
-
-    return new_dict
+    oca_data = fields.List(fields.Str())
 
 
 @docs(tags=["PersonalDataStorage"])
-@request_schema(DebugEndpointSchema)
+@querystring_schema(DebugEndpointSchema)
 async def debug_endpoint(request: web.BaseRequest):
     context = request.app["request_context"]
 
@@ -302,9 +266,10 @@ async def debug_endpoint(request: web.BaseRequest):
     }
 
     ids = await pds_oca_data_format_save(context, data)
-    serialized = await pds_oca_data_format_serialize_dict_recursive(context, data)
+    # serialized = await pds_oca_data_format_serialize_dict_recursive(context, data)
+    multiple = await load_multiple(context, oca_schema_base_dri=["12345", "123456"])
 
-    return web.json_response({"success": True, "result": ids, "serialized": serialized})
+    return web.json_response({"success": True, "result": ids, "multiple": multiple})
 
 
 @docs(tags=["present-proof"], summary="retrieve exchange record")

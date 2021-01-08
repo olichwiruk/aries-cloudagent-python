@@ -70,6 +70,8 @@ async def pds_load(context, id: str, *, with_meta: bool = False) -> dict:
         result["content"] = json.loads(result["content"], object_pairs_hook=OrderedDict)
     except json.JSONDecodeError:
         pass
+    except TypeError:
+        pass
 
     if with_meta:
         return result
@@ -103,16 +105,22 @@ async def pds_save_a(
     return payload_id
 
 
-async def load_multiple(
-    context, *, table: str = None, oca_schema_base_dri: str = None
-) -> str:
-
+async def load_multiple(context, *, table: str = None, oca_schema_base_dri=None):
+    """ Load multiple records, if oca_schema_base_dri is a list then returns a dictionary"""
     pds = await pds_get_active(context)
-    result = await pds.load_multiple(
-        table=table, oca_schema_base_dri=oca_schema_base_dri
-    )
-    assert_type(result, str)
-    return result
+    if isinstance(oca_schema_base_dri, list):
+        result = {}
+        for dri in oca_schema_base_dri:
+            result[dri] = await pds.load_multiple(table=table, oca_schema_base_dri=dri)
+            result[dri] = json.loads(result[dri])
+        return result
+
+    else:
+        result = await pds.load_multiple(
+            table=table, oca_schema_base_dri=oca_schema_base_dri
+        )
+        assert_type(result, str)
+        return result
 
 
 async def delete_record(context, id: str) -> str:
@@ -143,3 +151,39 @@ def encode(data: str) -> str:
     result = multibase.encode("base58btc", multi)
 
     return result.decode("utf-8")
+
+
+async def pds_oca_data_format_save(context, data):
+    ids_of_saved_schemas = {}
+    for oca_schema_base_dri in data:
+        if oca_schema_base_dri.startswith("DRI:"):
+            payload_id = await pds_save_a(
+                context,
+                data[oca_schema_base_dri],
+                oca_schema_dri=oca_schema_base_dri[4:],
+            )
+            ids_of_saved_schemas[oca_schema_base_dri] = payload_id
+        else:
+            ids_of_saved_schemas[
+                oca_schema_base_dri
+            ] = "Invalid format, DRIs should start with 'DRI:'"
+
+    return ids_of_saved_schemas
+
+
+async def pds_oca_data_format_serialize_item_recursive(context, key, val):
+    new_val = val
+    if isinstance(val, dict):
+        new_val = await pds_oca_data_format_serialize_dict_recursive(context, val)
+    elif val.startswith("DRI:"):
+        new_val = await pds_load(context, val[4:])
+        new_val = await pds_oca_data_format_serialize_dict_recursive(context, new_val)
+    return new_val
+
+
+async def pds_oca_data_format_serialize_dict_recursive(context, dct):
+    new_dict = {}
+    for k, v in dct.items():
+        new_dict[k] = await pds_oca_data_format_serialize_item_recursive(context, k, v)
+
+    return new_dict
