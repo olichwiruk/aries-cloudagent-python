@@ -33,12 +33,15 @@ from aries_cloudagent.pdstorage_thcf.api import (
 )
 from aries_cloudagent.holder.pds import CREDENTIALS_TABLE
 from aries_cloudagent.pdstorage_thcf.error import PDSError
-from ...issue_credential.v1_1.utils import create_credential
+from aries_cloudagent.protocols.issue_credential.v1_1.utils import (
+    create_credential,
+    create_credential_a,
+)
 from aries_cloudagent.protocols.issue_credential.v1_1.routes import (
     routes_get_public_did,
 )
 
-LOG = logging.getLogger(__name__).info
+LOGGER = logging.getLogger(__name__)
 
 from .messages.acknowledge_proof import AcknowledgeProof
 from collections import OrderedDict
@@ -100,7 +103,7 @@ async def request_presentation_api(request: web.BaseRequest):
         presentation_request=presentation_request,
     )
 
-    LOG("exchange_record %s", exchange_record)
+    LOGGER.debug("exchange_record %s", exchange_record)
     await exchange_record.save(context)
 
     return web.json_response(
@@ -205,14 +208,12 @@ async def acknowledge_proof(request: web.BaseRequest):
         context, exchange_record.connection_id
     )
 
-    credential = await create_credential(
+    credential = await create_credential_a(
         context,
-        {
-            "credential_type": "ProofAcknowledgment",
-            "credential_values": {
-                "status": str(query.get("status")),
-            },
-        },
+        "ProofAcknowledgment",
+        {"status": str(query.get("status"))},
+        "8UGn8ExuBojGW2X6F8zC8nNAxJcQpHd59xViic94VGo3",
+        "xdip1",
         their_public_did=exchange_record.prover_public_did,
         exception=web.HTTPInternalServerError,
     )
@@ -291,13 +292,13 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
         credentials = await load_multiple(context, table=CREDENTIALS_TABLE)
         credentials = json.loads(credentials)
     except json.JSONDecodeError:
-        LOG(
+        LOGGER.warn(
             "Error parsing credentials, perhaps there are no credentials in store %s",
             credentials,
         )
         credentials = {}
     except PDSError as err:
-        LOG("PDSError %s", err.roll_up)
+        LOGGER.warn("PDSError %s", err.roll_up)
         credentials = {}
 
     """

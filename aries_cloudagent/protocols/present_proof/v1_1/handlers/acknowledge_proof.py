@@ -11,14 +11,12 @@ from aries_cloudagent.protocols.present_proof.v1_1.models.presentation_exchange 
 from aries_cloudagent.protocols.present_proof.v1_1.messages.acknowledge_proof import (
     AcknowledgeProof,
 )
-from aries_cloudagent.verifier.base import BaseVerifier
 from ..models.utils import retrieve_exchange_by_thread
 import json
 from collections import OrderedDict
 from aries_cloudagent.aathcf.credentials import raise_exception_invalid_state
 
 
-# TODO Error handling
 class AcknowledgeProofHandler(BaseHandler):
     """
     Message handler logic for incoming credential presentations / incoming proofs.

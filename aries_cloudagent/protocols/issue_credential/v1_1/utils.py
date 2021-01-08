@@ -6,6 +6,9 @@ from aries_cloudagent.protocols.issue_credential.v1_1.models.credential_exchange
 )
 from aries_cloudagent.issuer.base import BaseIssuer, IssuerError
 from aries_cloudagent.aathcf.credentials import assert_type, assert_type_or
+import logging
+
+LOGGER = logging.getLogger(__name__)
 
 
 async def retrieve_connection(context, connection_id):
@@ -18,7 +21,7 @@ async def retrieve_connection(context, connection_id):
         connection_record: ConnectionRecord = await ConnectionRecord.retrieve_by_id(
             context, connection_id
         )
-    except StorageNotFoundError as err:
+    except StorageNotFoundError:
         raise web.HTTPNotFound(
             reason="Couldnt find a connection_record through the connection_id"
         )
@@ -75,7 +78,7 @@ async def create_credential(
 
     if their_public_did is not None:
         assert_type(their_public_did, str)
-        credential_values.update({"id": their_public_did})
+        credential_values.update({"subject_id": their_public_did})
 
     try:
         issuer: BaseIssuer = await context.inject(BaseIssuer)
@@ -89,5 +92,43 @@ async def create_credential(
         )
     except IssuerError as err:
         raise exception(reason=f"""create_credential: {err.roll_up}""")
+
+    return credential
+
+
+async def create_credentiala_a(
+    context,
+    credential_type,
+    credential_values,
+    oca_schema_base_dri,
+    oca_schema_namespace,
+    *,
+    their_public_did: str = None,
+    exception=web.HTTPInternalServerError,
+) -> dict:
+
+    if isinstance(their_public_did, str):
+        credential_values.update({"subject_id": their_public_did})
+    else:
+        LOGGER.warn("Invalid type of input argument")
+
+    oca_locator = oca_schema_namespace + ":" + oca_schema_base_dri
+    if isinstance(credential_type, str):
+        credential_type = [credential_type, oca_locator]
+    elif isinstance(credential_type, list):
+        credential_type.append(oca_locator)
+    else:
+        LOGGER.warn("Invalid type of input argument")
+
+    try:
+        issuer: BaseIssuer = await context.inject(BaseIssuer)
+        credential, _ = await issuer.create_credential(
+            schema={"credential_type": credential_type},
+            credential_values=credential_values,
+            credential_offer={},
+            credential_request={},
+        )
+    except IssuerError as err:
+        raise exception(reason=f"create_credential: {err.roll_up}")
 
     return credential

@@ -190,10 +190,9 @@ class PDSIssuer(BaseIssuer):
         # and that json has VerifiableCredential with all possible fields
         # which we can reach through https://www.schema.org/VerifiableCredential
         credential_dict["type"] = ["VerifiableCredential"]
-        if credential_type != None:
+        if isinstance(credential_type, str) and credential_type != "":
             credential_dict["type"].append(credential_type)
-
-        if isinstance(credential_type, list) and credential_type != []:
+        elif isinstance(credential_type, list) and credential_type != []:
             credential_dict["type"].extend(credential_type)
 
         credential_dict["issuer"] = my_did
