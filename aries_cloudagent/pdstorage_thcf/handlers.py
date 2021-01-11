@@ -1,4 +1,4 @@
-from .api import pds_load, pds_save
+from .api import pds_load_string
 from .base import *
 from .error import PDSError, PDSNotFoundError
 from .message_types import ExchangeDataB, ExchangeDataA
@@ -23,7 +23,7 @@ class ExchangeDataAHandler(BaseHandler):
         payload_dri = context.message.payload_dri
 
         try:
-            payload = await pds_load(context, payload_dri)
+            payload = await pds_load_string(context, payload_dri)
             if payload is None:
                 raise PDSNotFoundError(f"Data with dri {payload_dri} not found")
         except PDSNotFoundError as err:
@@ -49,15 +49,3 @@ class ExchangeDataBHandler(BaseHandler):
             "pds/payload",
             {"dri": msg.payload_dri, "payload": msg.payload},
         )
-
-        """
-        try:
-            payload_dri = await pds_save(context, context.message.payload)
-        except PDSError as err:
-            raise err.roll_up
-
-        if context.message.payload_dri:
-            assert (
-                context.message.payload_dri == payload_dri
-            ), "dri's differ between agents!"
-        """

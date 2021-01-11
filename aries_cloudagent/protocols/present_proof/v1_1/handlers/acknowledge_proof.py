@@ -14,7 +14,6 @@ from aries_cloudagent.protocols.present_proof.v1_1.messages.acknowledge_proof im
 from ..models.utils import retrieve_exchange_by_thread
 import json
 from collections import OrderedDict
-from aries_cloudagent.aathcf.credentials import raise_exception_invalid_state
 
 
 class AcknowledgeProofHandler(BaseHandler):
@@ -25,31 +24,29 @@ class AcknowledgeProofHandler(BaseHandler):
     async def handle(self, context: RequestContext, responder: BaseResponder):
         debug_handler(self._logger.info, context, AcknowledgeProof)
 
-        exchange_record: THCFPresentationExchange = await retrieve_exchange_by_thread(
+        exchange: THCFPresentationExchange = await retrieve_exchange_by_thread(
             context,
             responder.connection_id,
             context.message._thread_id,
             HandlerException,
         )
 
-        raise_exception_invalid_state(
-            exchange_record,
-            THCFPresentationExchange.STATE_PRESENTATION_SENT,
-            THCFPresentationExchange.ROLE_PROVER,
-            HandlerException,
-        )
+        if exchange.role != exchange.ROLE_PROVER:
+            raise HandlerException(reason="Invalid exchange role")
+        if exchange.state != exchange.STATE_PRESENTATION_SENT:
+            raise HandlerException(reason="Invalid exchange state")
 
-        exchange_record.acknowledgment_credential = json.loads(
+        exchange.acknowledgment_credential = json.loads(
             context.message.credential, object_pairs_hook=OrderedDict
         )
-        exchange_record.state = exchange_record.STATE_ACKNOWLEDGED
-        await exchange_record.save(context)
+        exchange.state = exchange.STATE_ACKNOWLEDGED
+        await exchange.save(context)
 
         await responder.send_webhook(
             "present_proof",
             {
                 "type": "acknowledge_proof",
-                "exchange_record_id": exchange_record._id,
+                "exchange_record_id": exchange._id,
                 "connection_id": responder.connection_id,
             },
         )
