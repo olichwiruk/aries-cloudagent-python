@@ -16,9 +16,6 @@ from ....holder.base import BaseHolder, HolderError
 from .models.presentation_exchange import THCFPresentationExchange
 from ....messaging.models.openapi import OpenAPISchema, Schema
 from aries_cloudagent.protocols.issue_credential.v1_1.utils import retrieve_connection
-from aries_cloudagent.aathcf.credentials import (
-    raise_exception_invalid_state,
-)
 from .messages.request_proof import RequestProof
 from .messages.present_proof import PresentProof
 from .models.utils import retrieve_exchange
@@ -137,26 +134,22 @@ async def present_proof_api(request: web.BaseRequest):
     exchange_record_id = body.get("exchange_record_id")
     credential_id = body.get("credential_id")
 
-    exchange_record = await retrieve_exchange(
-        context, exchange_record_id, web.HTTPNotFound
-    )
+    exchange = await retrieve_exchange(context, exchange_record_id, web.HTTPNotFound)
 
-    raise_exception_invalid_state(
-        exchange_record,
-        THCFPresentationExchange.STATE_REQUEST_RECEIVED,
-        THCFPresentationExchange.ROLE_PROVER,
-        web.HTTPBadRequest,
-    )
+    if exchange.role != exchange.ROLE_PROVER:
+        raise web.HTTPBadRequest(reason="Invalid exchange role")
+    if exchange.state != exchange.STATE_REQUEST_RECEIVED:
+        raise web.HTTPBadRequest(reason="Invalid exchange state")
 
     connection_record: ConnectionRecord = await retrieve_connection(
-        context, exchange_record.connection_id
+        context, exchange.connection_id
     )
 
     try:
         holder: BaseHolder = await context.inject(BaseHolder)
         requested_credentials = {"credential_id": credential_id}
         presentation = await holder.create_presentation(
-            presentation_request=exchange_record.presentation_request,
+            presentation_request=exchange.presentation_request,
             requested_credentials=requested_credentials,
             schemas={},
             credential_definitions={},
@@ -168,20 +161,20 @@ async def present_proof_api(request: web.BaseRequest):
     message = PresentProof(
         credential_presentation=presentation, prover_public_did=public_did
     )
-    message.assign_thread_id(exchange_record.thread_id)
+    message.assign_thread_id(exchange.thread_id)
     await outbound_handler(message, connection_id=connection_record.connection_id)
 
-    exchange_record.state = exchange_record.STATE_PRESENTATION_SENT
-    exchange_record.presentation = json.loads(
+    exchange.state = exchange.STATE_PRESENTATION_SENT
+    exchange.presentation = json.loads(
         presentation, object_pairs_hook=collections.OrderedDict
     )
-    await exchange_record.save(context)
+    await exchange.save(context)
 
     return web.json_response(
         {
             "success": True,
             "message": "proof sent and exchange updated",
-            "exchange_id": exchange_record._id,
+            "exchange_id": exchange._id,
         }
     )
 
@@ -193,19 +186,17 @@ async def acknowledge_proof(request: web.BaseRequest):
     outbound_handler = request.app["outbound_message_router"]
     query = request.query
 
-    exchange_record: THCFPresentationExchange = await retrieve_exchange(
+    exchange: THCFPresentationExchange = await retrieve_exchange(
         context, query.get("exchange_record_id"), web.HTTPNotFound
     )
 
-    raise_exception_invalid_state(
-        exchange_record,
-        THCFPresentationExchange.STATE_PRESENTATION_RECEIVED,
-        THCFPresentationExchange.ROLE_VERIFIER,
-        web.HTTPBadRequest,
-    )
+    if exchange.role != exchange.ROLE_VERIFIER:
+        raise web.HTTPBadRequest(reason="Invalid exchange role")
+    if exchange.state != exchange.STATE_PRESENTATION_RECEIVED:
+        raise web.HTTPBadRequest(reason="Invalid exchange state")
 
     connection_record: ConnectionRecord = await retrieve_connection(
-        context, exchange_record.connection_id
+        context, exchange.connection_id
     )
 
     credential = await create_credential_a(
@@ -214,24 +205,24 @@ async def acknowledge_proof(request: web.BaseRequest):
         {"status": str(query.get("status"))},
         "8UGn8ExuBojGW2X6F8zC8nNAxJcQpHd59xViic94VGo3",
         "xdip1",
-        their_public_did=exchange_record.prover_public_did,
+        their_public_did=exchange.prover_public_did,
         exception=web.HTTPInternalServerError,
     )
 
     message = AcknowledgeProof(credential=credential)
-    message.assign_thread_id(exchange_record.thread_id)
+    message.assign_thread_id(exchange.thread_id)
     await outbound_handler(message, connection_id=connection_record.connection_id)
 
-    exchange_record.acknowledgment_credential = json.loads(
+    exchange.acknowledgment_credential = json.loads(
         credential, object_pairs_hook=OrderedDict
     )
-    exchange_record.state = exchange_record.STATE_ACKNOWLEDGED
-    await exchange_record.save(context)
+    exchange.state = exchange.STATE_ACKNOWLEDGED
+    await exchange.save(context)
     return web.json_response(
         {
             "success": True,
             "message": "ack sent and exchange record updated",
-            "exchange_record_id": exchange_record._id,
+            "exchange_record_id": exchange._id,
         }
     )
 

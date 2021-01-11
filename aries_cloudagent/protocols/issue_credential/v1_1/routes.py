@@ -21,7 +21,6 @@ from .utils import (
     retrieve_connection,
     create_credential,
 )
-from aries_cloudagent.aathcf.credentials import raise_exception_invalid_state
 from aries_cloudagent.wallet.base import BaseWallet
 
 
@@ -54,12 +53,10 @@ async def issue_credential(request: web.BaseRequest):
     credential_exchange_id = request.query.get("credential_exchange_id")
     exchange = await retrieve_credential_exchange(context, credential_exchange_id)
 
-    raise_exception_invalid_state(
-        exchange,
-        CredentialExchangeRecord.STATE_REQUEST_RECEIVED,
-        CredentialExchangeRecord.ROLE_ISSUER,
-        web.HTTPBadRequest,
-    )
+    if exchange.role != exchange.ROLE_ISSUER:
+        raise web.HTTPBadRequest(reason="Invalid exchange role")
+    if exchange.state != exchange.STATE_REQUEST_RECEIVED:
+        raise web.HTTPBadRequest(reason="Invalid exchange state")
 
     connection = await retrieve_connection(context, exchange.connection_id)
     request = exchange.credential_request
@@ -70,7 +67,7 @@ async def issue_credential(request: web.BaseRequest):
         exception=web.HTTPInternalServerError,
     )
 
-    LOGGER.debug("CREDENTIAL %s", credential)
+    LOGGER.info("CREDENTIAL %s", credential)
     issue = CredentialIssue(credential=credential)
     issue.assign_thread_id(exchange.thread_id)
     await outbound_handler(issue, connection_id=connection.connection_id)

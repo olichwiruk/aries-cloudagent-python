@@ -15,7 +15,6 @@ from aries_cloudagent.verifier.base import BaseVerifier
 from ..models.utils import retrieve_exchange_by_thread
 import json
 from collections import OrderedDict
-from aries_cloudagent.aathcf.credentials import raise_exception_invalid_state
 
 
 # TODO Error handling
@@ -32,22 +31,20 @@ class PresentProofHandler(BaseHandler):
             context.message.credential_presentation, object_pairs_hook=OrderedDict
         )
 
-        exchange_record: THCFPresentationExchange = await retrieve_exchange_by_thread(
+        exchange: THCFPresentationExchange = await retrieve_exchange_by_thread(
             context,
             responder.connection_id,
             context.message._thread_id,
             HandlerException,
         )
 
-        raise_exception_invalid_state(
-            exchange_record,
-            THCFPresentationExchange.STATE_REQUEST_SENT,
-            THCFPresentationExchange.ROLE_VERIFIER,
-            HandlerException,
-        )
+        if exchange.role != exchange.ROLE_VERIFIER:
+            raise HandlerException(reason="Invalid exchange role")
+        if exchange.state != exchange.STATE_REQUEST_SENT:
+            raise HandlerException(reason="Invalid exchange state")
 
         is_verified = await verifier.verify_presentation(
-            presentation_request=exchange_record.presentation_request,
+            presentation_request=exchange.presentation_request,
             presentation=presentation,
             schemas={},
             credential_definitions={},
@@ -60,17 +57,17 @@ class PresentProofHandler(BaseHandler):
                 f"Verifier couldn't verify the presentation! {is_verified}"
             )
 
-        exchange_record.presentation = presentation
-        exchange_record.verified = True
-        exchange_record.prover_public_did = context.message.prover_public_did
-        exchange_record.state = exchange_record.STATE_PRESENTATION_RECEIVED
-        await exchange_record.save(context, reason="PresentationExchange updated!")
+        exchange.presentation = presentation
+        exchange.verified = True
+        exchange.prover_public_did = context.message.prover_public_did
+        exchange.state = exchange.STATE_PRESENTATION_RECEIVED
+        await exchange.save(context, reason="PresentationExchange updated!")
 
         await responder.send_webhook(
             "present_proof",
             {
                 "type": "present_proof",
-                "exchange_record_id": exchange_record._id,
+                "exchange_record_id": exchange._id,
                 "connection_id": responder.connection_id,
             },
         )

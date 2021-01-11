@@ -110,6 +110,7 @@ async def create_credential_a(
     if isinstance(their_public_did, str):
         credential_values.update({"subject_id": their_public_did})
     else:
+        
         LOGGER.warn("Invalid type of input argument")
 
     oca_locator = oca_schema_namespace + ":" + oca_schema_base_dri

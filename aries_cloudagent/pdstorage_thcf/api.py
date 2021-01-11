@@ -79,6 +79,19 @@ async def pds_load(context, id: str, *, with_meta: bool = False) -> dict:
         return result["content"]
 
 
+async def pds_load_string(context, id: str, *, with_meta: bool = False) -> str:
+    assert_type(id, str)
+
+    match = await match_table_query_id(context, id)
+    pds = await pds_get_by_name(context, match.pds_type)
+    result = await pds.load(id)
+
+    if with_meta:
+        return result
+    else:
+        return result["content"]
+
+
 async def pds_save(context, payload, metadata: str = "{}") -> str:
     assert_type_or(payload, str, dict)
     assert_type(metadata, str)
@@ -185,5 +198,4 @@ async def pds_oca_data_format_serialize_dict_recursive(context, dct):
     new_dict = {}
     for k, v in dct.items():
         new_dict[k] = await pds_oca_data_format_serialize_item_recursive(context, k, v)
-
     return new_dict
