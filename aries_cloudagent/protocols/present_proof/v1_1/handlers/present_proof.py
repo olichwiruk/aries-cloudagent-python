@@ -57,7 +57,7 @@ class PresentProofHandler(BaseHandler):
                 f"Verifier couldn't verify the presentation! {is_verified}"
             )
 
-        exchange.presentation = presentation
+        await exchange.presentation_pds_set(context, presentation)
         exchange.verified = True
         exchange.prover_public_did = context.message.prover_public_did
         exchange.state = exchange.STATE_PRESENTATION_RECEIVED

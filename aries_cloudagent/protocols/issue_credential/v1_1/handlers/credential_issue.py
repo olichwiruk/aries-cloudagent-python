@@ -67,13 +67,11 @@ class CredentialIssueHandler(BaseHandler):
                 credential_request_metadata={},
             )
         except HolderError as err:
-            # TODO Problem report
-            raise HandlerException(
-                "Error on store_credential async! TODO Error handling", err.roll_up
-            )
+            raise HandlerException("Error on store_credential async!", err.roll_up)
 
         exchange.state = exchange.STATE_CREDENTIAL_RECEIVED
         exchange.credential_id = credential_id
+        await exchange.save(context)
 
         self._logger.info("Stored Credential ID %s", credential_id)
         await responder.send_webhook(

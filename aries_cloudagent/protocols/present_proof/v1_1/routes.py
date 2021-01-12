@@ -165,9 +165,7 @@ async def present_proof_api(request: web.BaseRequest):
     await outbound_handler(message, connection_id=connection_record.connection_id)
 
     exchange.state = exchange.STATE_PRESENTATION_SENT
-    exchange.presentation = json.loads(
-        presentation, object_pairs_hook=collections.OrderedDict
-    )
+    await exchange.presentation_pds_set(context, presentation)
     await exchange.save(context)
 
     return web.json_response(
@@ -201,10 +199,9 @@ async def acknowledge_proof(request: web.BaseRequest):
 
     credential = await create_credential_a(
         context,
-        "ProofAcknowledgment",
-        {"status": str(query.get("status"))},
-        "8UGn8ExuBojGW2X6F8zC8nNAxJcQpHd59xViic94VGo3",
-        "xdip1",
+        credential_type="ProofAcknowledgment",
+        credential_values={"status": str(query.get("status"))},
+        oca_schema_base_dri="8UGn8ExuBojGW2X6F8zC8nNAxJcQpHd59xViic94VGo3",
         their_public_did=exchange.prover_public_did,
         exception=web.HTTPInternalServerError,
     )
@@ -213,16 +210,15 @@ async def acknowledge_proof(request: web.BaseRequest):
     message.assign_thread_id(exchange.thread_id)
     await outbound_handler(message, connection_id=connection_record.connection_id)
 
-    exchange.acknowledgment_credential = json.loads(
-        credential, object_pairs_hook=OrderedDict
-    )
     exchange.state = exchange.STATE_ACKNOWLEDGED
+    await exchange.verifier_ack_cred_pds_set(context, credential)
     await exchange.save(context)
     return web.json_response(
         {
             "success": True,
             "message": "ack sent and exchange record updated",
             "exchange_record_id": exchange._id,
+            "ack_credential_dri": exchange.acknowledgment_credential_dri,
         }
     )
 
@@ -273,7 +269,10 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
 
     result = []
     for i in records:
-        result.append(i.serialize())
+        serialize = i.serialize()
+        if i.presentation_dri is not None:
+            serialize["presentation"] = await i.presentation_pds_get(context)
+        result.append(serialize)
 
     """
     Download credentials
@@ -293,27 +292,8 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
         credentials = {}
 
     """
-    DEBUG VERSION
-    for rec in result:
-        rec["list_of_matching_credentials"] = []
-        for cred in credentials:
-            cred = json.loads(cred)
-            cred_content = json.loads(cred["content"])
-            i_have_credential = True
-            for attr in rec["presentation_request"]["requested_attributes"]:
-                if attr not in cred_content["credentialSubject"]:
-                    i_have_credential = False
-
-            if i_have_credential is True:
-                rec["list_of_matching_credentials"].append(cred["dri"])
-    """
-
-    """
     Match the credential requests with credentials in the possesion of the agent
     in this case we check if both issuer_did and oca_schema_dri are correct
-
-    TODO: Optimization, create a dictionary of credential - schema base matches,
-    with schema base as key
     """
 
     for rec in result:
@@ -326,21 +306,10 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
             record_base_dri = rec["presentation_request"].get(
                 "schema_base_dri", "INVALIDA"
             )
-            # record_issuer_did = rec["presentation_request"].get(
-            #     "issuer_did", "INVALIDB"
-            # )
             cred_base_dri = cred_content["credentialSubject"].get(
                 "oca_schema_dri", "INVALIDC"
             )
-            # cred_issuer_did = cred_content["credentialSubject"].get(
-            #     "issuer_did", "INVALIDD"
-            # )
-
-            if (
-                record_base_dri
-                == cred_base_dri
-                # and record_issuer_did == cred_issuer_did
-            ):
+            if record_base_dri == cred_base_dri:
                 rec["list_of_matching_credentials"].append(cred["dri"])
 
     return web.json_response({"success": True, "result": result})

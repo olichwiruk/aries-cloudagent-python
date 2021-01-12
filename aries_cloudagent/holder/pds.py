@@ -133,7 +133,7 @@ class PDSHolder(BaseHolder):
         TODO: caching credentials of same credential_id so there wont be duplicates
         or maybe set will do
 
-        TODO: this checking is very shallow, we need something robust
+        TODO: this check is very shallow, we need something robust
 
         """
         """

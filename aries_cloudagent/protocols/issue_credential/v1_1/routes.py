@@ -22,6 +22,7 @@ from .utils import (
     create_credential,
 )
 from aries_cloudagent.wallet.base import BaseWallet
+from aries_cloudagent.pdstorage_thcf.error import PDSError
 
 
 LOGGER = logging.getLogger(__name__)
@@ -73,6 +74,11 @@ async def issue_credential(request: web.BaseRequest):
     await outbound_handler(issue, connection_id=connection.connection_id)
 
     exchange.state = CredentialExchangeRecord.STATE_ISSUED
+    try:
+        await exchange.issuer_credential_pds_set(context, credential)
+    except PDSError as err:
+        raise web.HTTPInternalServerError(reason=err.roll_up)
+
     await exchange.save(context)
 
     return web.json_response(
@@ -151,7 +157,11 @@ async def retrieve_credential_exchange_endpoint(request: web.BaseRequest):
 
     result = []
     for i in records:
-        result.append(i.serialize())
+        serialized = i.serialize()
+        credential_exists = await i.credential_pds_get(context)
+        if credential_exists is not None:
+            serialized["credential"] = credential_exists
+        result.append(serialized)
 
     return web.json_response({"success": True, "result": result})
 
