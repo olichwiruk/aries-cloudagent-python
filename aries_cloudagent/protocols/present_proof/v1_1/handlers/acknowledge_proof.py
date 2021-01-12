@@ -12,6 +12,7 @@ from aries_cloudagent.protocols.present_proof.v1_1.messages.acknowledge_proof im
     AcknowledgeProof,
 )
 from ..models.utils import retrieve_exchange_by_thread
+from aries_cloudagent.holder.base import BaseHolder, HolderError
 import json
 from collections import OrderedDict
 
@@ -36,9 +37,20 @@ class AcknowledgeProofHandler(BaseHandler):
         if exchange.state != exchange.STATE_PRESENTATION_SENT:
             raise HandlerException(reason="Invalid exchange state")
 
-        exchange.acknowledgment_credential = json.loads(
+        holder: BaseHolder = await context.inject(BaseHolder)
+        credential_data = json.loads(
             context.message.credential, object_pairs_hook=OrderedDict
         )
+        try:
+            credential_dri = await holder.store_credential(
+                credential_definition={},
+                credential_data=credential_data,
+                credential_request_metadata={},
+            )
+        except HolderError as err:
+            raise HandlerException("Error on store_credential async!", err.roll_up)
+
+        exchange.acknowledgment_credential_dri = credential_dri
         exchange.state = exchange.STATE_ACKNOWLEDGED
         await exchange.save(context)
 
@@ -48,5 +60,6 @@ class AcknowledgeProofHandler(BaseHandler):
                 "type": "acknowledge_proof",
                 "exchange_record_id": exchange._id,
                 "connection_id": responder.connection_id,
+                "acknowledgment_credential_dri": credential_dri,
             },
         )
