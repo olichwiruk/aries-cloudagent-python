@@ -285,7 +285,6 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
 
     try:
         credentials = await load_multiple(context, table=CREDENTIALS_TABLE)
-        credentials = json.loads(credentials)
     except json.JSONDecodeError:
         LOGGER.warn(
             "Error parsing credentials, perhaps there are no credentials in store %s",
@@ -304,7 +303,10 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
     for rec in result:
         rec["list_of_matching_credentials"] = []
         for cred in credentials:
-            cred_content = json.loads(cred["content"])
+            try:
+                cred_content = json.loads(cred["content"])
+            except (json.JSONDecodeError, TypeError):
+                cred_content = cred["content"]
 
             print("Cred content:", cred_content)
 

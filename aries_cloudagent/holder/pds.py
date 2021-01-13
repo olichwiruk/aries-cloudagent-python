@@ -256,7 +256,7 @@ class PDSHolder(BaseHolder):
         try:
             record_id = await pds_save_a(
                 self.context,
-                json.dumps(credential_data),
+                credential_data,
                 table=CREDENTIALS_TABLE,
             )
         except PDSNotFoundError as err:
@@ -277,7 +277,6 @@ class PDSHolder(BaseHolder):
             raise HolderError(err.roll_up)
 
         active_pds = await pds_get_active_name(self.context)
-        query = json.loads(query)
         for i in query:
             try:
                 await DriStorageMatchTable.retrieve_by_id(self.context, i["dri"])

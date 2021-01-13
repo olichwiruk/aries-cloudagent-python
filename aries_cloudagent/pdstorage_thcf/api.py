@@ -132,7 +132,7 @@ async def load_multiple(context, *, table: str = None, oca_schema_base_dri=None)
         result = await pds.load_multiple(
             table=table, oca_schema_base_dri=oca_schema_base_dri
         )
-        assert_type(result, str)
+        result = json.loads(result)
         return result
 
 
