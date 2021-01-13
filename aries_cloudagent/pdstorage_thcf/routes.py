@@ -298,7 +298,7 @@ async def get_multiple_records(request: web.BaseRequest):
     except PDSError as err:
         raise web.HTTPInternalServerError(reason=err.roll_up)
 
-    return web.json_response({"success": True, "result": json.loads(result)})
+    return web.json_response({"success": True, "result": result})
 
 
 class GetMultipleRecordsForOcaSchema(Schema):
