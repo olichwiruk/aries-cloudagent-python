@@ -207,7 +207,7 @@ async def acknowledge_proof(request: web.BaseRequest):
                 "verified": str(query.get("status")),
                 "presentation_urn": presentation_urn,
             },
-            "oca_schema_base_dri": "8UGn8ExuBojGW2X6F8zC8nNAxJcQpHd59xViic94VGo3",
+            "oca_schema_dri": "8UGn8ExuBojGW2X6F8zC8nNAxJcQpHd59xViic94VGo3",
         },
         their_public_did=exchange.prover_public_did,
         exception=web.HTTPInternalServerError,
