@@ -1,5 +1,5 @@
 from .base import BasePersonalDataStorage
-from .error import PDSNotFoundError, PDSError
+from .error import PDSNotFoundError, PDSError, PDSRecordNotFoundError
 from aiohttp import ClientSession, FormData, ClientConnectionError, ClientError
 import json
 import logging
@@ -42,7 +42,10 @@ class DataVault(BasePersonalDataStorage):
         try:
             response_json = json.loads(response_text, object_pairs_hook=OrderedDict)
             if "errors" in response_json:
-                raise PDSError(response_json)
+                if response_json["errors"] == "record not found":
+                    raise PDSRecordNotFoundError(f"Record with id {id} NOT FOUND!")
+                else:
+                    raise PDSError(response_json)
         except json.JSONDecodeError:
             LOGGER.warning("Error found in data_vault load %s", response_text)
             pass
@@ -81,7 +84,12 @@ class DataVault(BasePersonalDataStorage):
         """
         try:
             await self.load("ping")
-        except (ClientConnectionError, ClientError) as err:
+        except (
+            ClientConnectionError,
+            ClientError,
+            PDSRecordNotFoundError,
+            PDSError,
+        ) as err:
             return [False, str(err)]
 
         return [True, None]
