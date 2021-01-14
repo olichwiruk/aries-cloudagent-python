@@ -6,7 +6,7 @@ import json
 import logging
 from urllib.parse import urlparse
 
-from aiohttp import ClientSession, ClientConnectionError
+from aiohttp import ClientSession, ClientConnectionError, ClientError
 from aries_cloudagent.aathcf.credentials import assert_type, assert_type_or
 import time
 from collections import OrderedDict
@@ -120,10 +120,6 @@ class OwnYourDataVault(BasePersonalDataStorage):
             )
             result = await unpack_response(result)
             result_dict: dict = json.loads(result, object_pairs_hook=OrderedDict)
-        #     result_dict = result_dict.get("content")
-
-        # if isinstance(result_dict, dict):
-        #     result_dict = json.dumps(result_dict)
 
         return result_dict
 
@@ -224,7 +220,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
     async def ping(self) -> [bool, str]:
         try:
             await self.update_token()
-        except ClientConnectionError as err:
+        except (ClientConnectionError, ClientError) as err:
             return [False, str(err)]
         except PDSError as err:
             return [False, str(err)]

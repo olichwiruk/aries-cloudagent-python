@@ -100,7 +100,6 @@ async def create_credential_a(
     context,
     credential_type,
     credential_values,
-    oca_schema_base_dri,
     *,
     their_public_did: str = None,
     exception=web.HTTPInternalServerError,
@@ -110,14 +109,6 @@ async def create_credential_a(
         credential_values.update({"subject_id": their_public_did})
     else:
         LOGGER.warn("Invalid type of their public did")
-
-    oca_locator = "DRI:" + oca_schema_base_dri
-    if isinstance(credential_type, str):
-        credential_type = [credential_type, oca_locator]
-    elif isinstance(credential_type, list):
-        credential_type.append(oca_locator)
-    else:
-        LOGGER.warn("Invalid type of credential_type")
 
     try:
         issuer: BaseIssuer = await context.inject(BaseIssuer)
