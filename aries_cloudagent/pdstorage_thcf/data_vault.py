@@ -1,6 +1,6 @@
 from .base import BasePersonalDataStorage
-from .error import PDSNotFoundError
-from aiohttp import ClientSession, FormData, ClientConnectionError
+from .error import PDSNotFoundError, PDSError
+from aiohttp import ClientSession, FormData, ClientConnectionError, ClientError
 import json
 import logging
 from collections import OrderedDict
@@ -42,7 +42,7 @@ class DataVault(BasePersonalDataStorage):
         try:
             response_json = json.loads(response_text, object_pairs_hook=OrderedDict)
             if "errors" in response_json:
-                return None
+                raise PDSError(response_json)
         except json.JSONDecodeError:
             LOGGER.warning("Error found in data_vault load %s", response_text)
             pass
@@ -81,7 +81,7 @@ class DataVault(BasePersonalDataStorage):
         """
         try:
             await self.load("ping")
-        except ClientConnectionError as err:
+        except (ClientConnectionError, ClientError) as err:
             return [False, str(err)]
 
         return [True, None]
