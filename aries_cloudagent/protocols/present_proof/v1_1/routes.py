@@ -20,7 +20,6 @@ from .messages.request_proof import RequestProof
 from .messages.present_proof import PresentProof
 from .models.utils import retrieve_exchange
 import logging
-import collections
 from aries_cloudagent.pdstorage_thcf.api import (
     load_multiple,
     pds_load,
@@ -38,10 +37,10 @@ from aries_cloudagent.protocols.issue_credential.v1_1.routes import (
     routes_get_public_did,
 )
 
-LOGGER = logging.getLogger(__name__)
-
 from .messages.acknowledge_proof import AcknowledgeProof
 from collections import OrderedDict
+
+LOGGER = logging.getLogger(__name__)
 
 
 class PresentationRequestAPISchema(OpenAPISchema):
@@ -206,8 +205,9 @@ async def acknowledge_proof(request: web.BaseRequest):
             "oca_data": {
                 "verified": str(query.get("status")),
                 "presentation_urn": presentation_urn,
+                "issuer_name": context.settings.get("default_label"),
             },
-            "oca_schema_dri": "8UGn8ExuBojGW2X6F8zC8nNAxJcQpHd59xViic94VGo3",
+            "oca_schema_dri": "2VTc8rKY6pHcjfi8uLT3pxCYaKGNP8MdWB5LKz1zWebc",
         },
         their_public_did=exchange.prover_public_did,
         exception=web.HTTPInternalServerError,
