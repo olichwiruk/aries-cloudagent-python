@@ -7,6 +7,7 @@ from marshmallow import fields, validate
 from .....config.injection_context import InjectionContext
 from .....messaging.models.base_record import BaseExchangeRecord, BaseExchangeSchema
 from .....messaging.valid import UUIDFour
+from aries_cloudagent.pdstorage_thcf.api import pds_load, pds_save
 
 
 class CredentialExchangeRecord(BaseExchangeRecord):
@@ -129,6 +130,15 @@ class CredentialExchangeRecord(BaseExchangeRecord):
     def __eq__(self, other: Any) -> bool:
         """Comparison between records."""
         return super().__eq__(other)
+
+    async def issuer_credential_pds_set(self, context, credential):
+        self.credential_id = await pds_save(context, credential)
+
+    async def credential_pds_get(self, context):
+        if self.credential_id is None:
+            return None
+        result = await pds_load(context, self.credential_id)
+        return result
 
 
 class CredentialExchangeSchema(BaseExchangeSchema):

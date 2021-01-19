@@ -13,7 +13,6 @@ from aries_cloudagent.protocols.issue_credential.v1_1.models.credential_exchange
 from aries_cloudagent.storage.error import StorageError, StorageNotFoundError
 import json
 from collections import OrderedDict
-from aries_cloudagent.aathcf.credentials import raise_exception_invalid_state
 
 
 class CredentialIssueHandler(BaseHandler):
@@ -26,7 +25,7 @@ class CredentialIssueHandler(BaseHandler):
         debug_handler(self._logger.debug, context, CredentialIssue)
 
         try:
-            exchange_record: CredentialExchangeRecord = (
+            exchange: CredentialExchangeRecord = (
                 await CredentialExchangeRecord.retrieve_by_connection_and_thread(
                     context, responder.connection_id, context.message._thread_id
                 )
@@ -39,15 +38,13 @@ class CredentialIssueHandler(BaseHandler):
         except StorageError as err:
             raise HandlerException(err.roll_up)
 
-        raise_exception_invalid_state(
-            exchange_record,
-            CredentialExchangeRecord.STATE_REQUEST_SENT,
-            CredentialExchangeRecord.ROLE_HOLDER,
-            HandlerException,
-        )
+        if exchange.role != exchange.ROLE_HOLDER:
+            raise HandlerException(reason="Invalid exchange role")
+        if exchange.state != exchange.STATE_REQUEST_SENT:
+            raise HandlerException(reason="Invalid exchange state")
 
         credential_message = context.message
-        requested_credential = exchange_record.credential_request
+        requested_credential = exchange.credential_request
         issued_credential = json.loads(
             credential_message.credential, object_pairs_hook=OrderedDict
         )
@@ -70,13 +67,11 @@ class CredentialIssueHandler(BaseHandler):
                 credential_request_metadata={},
             )
         except HolderError as err:
-            # TODO Problem report
-            raise HandlerException(
-                "Error on store_credential async! TODO Error handling", err.roll_up
-            )
+            raise HandlerException("Error on store_credential async!", err.roll_up)
 
-        exchange_record.state = exchange_record.STATE_CREDENTIAL_RECEIVED
-        exchange_record.credential_id = credential_id
+        exchange.state = exchange.STATE_CREDENTIAL_RECEIVED
+        exchange.credential_id = credential_id
+        await exchange.save(context)
 
         self._logger.info("Stored Credential ID %s", credential_id)
         await responder.send_webhook(

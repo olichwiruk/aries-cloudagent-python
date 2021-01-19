@@ -6,8 +6,8 @@ import json
 import logging
 from urllib.parse import urlparse
 
-from aiohttp import ClientSession, ClientConnectionError
-from aries_cloudagent.aathcf.credentials import assert_type
+from aiohttp import ClientSession, ClientConnectionError, ClientError
+from aries_cloudagent.aathcf.credentials import assert_type, assert_type_or
 import time
 from collections import OrderedDict
 
@@ -25,6 +25,13 @@ async def unpack_response(response):
         raise PDSError("Error Own Your Data PDS", result)
 
     return result
+
+
+def get_delimiter(parameter_count_in):
+    if parameter_count_in == 0:
+        return "?"
+    else:
+        return "&"
 
 
 class OwnYourDataVault(BasePersonalDataStorage):
@@ -99,7 +106,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
         if time_elapsed > float(self.token["expires_in"]):
             await self.update_token()
 
-    async def load(self, dri: str) -> str:
+    async def load(self, dri: str) -> dict:
         """
         TODO: Errors checking
         """
@@ -113,33 +120,36 @@ class OwnYourDataVault(BasePersonalDataStorage):
             )
             result = await unpack_response(result)
             result_dict: dict = json.loads(result, object_pairs_hook=OrderedDict)
-            result_dict = result_dict.get("content")
-
-        if isinstance(result_dict, dict):
-            result_dict = json.dumps(result_dict)
 
         return result_dict
 
-    async def save(self, record: str, metadata: str) -> str:
+    async def save(self, record, metadata: dict) -> str:
         """
         meta: {
             "table" - specifies the table name into which save the data
             "oca_schema_dri"
         }
         """
-        assert_type(record, str)
-        assert_type(metadata, str)
+        assert_type_or(record, str, dict)
+        assert_type(metadata, dict)
         await self.update_token_when_expired()
 
         table = self.settings.get("repo")
         table = table if table is not None else "dip.data"
 
-        meta = json.loads(metadata)
-        dri_value = encode(record)
+        meta = metadata
+        dri_value = None
 
-        record = {"content": record}
-        record["dri"] = dri_value
+        if isinstance(record, str):
+            dri_value = encode(record)
+        elif isinstance(record, dict):
+            dri_value = encode(json.dumps(record))
 
+        record = {
+            "content": record,
+            "dri": dri_value,
+            "timestamp": int(round(time.time() * 1000)),  # current time in milliseconds
+        }
         LOGGER.debug("OYD save record %s metadata %s", record, meta)
         async with ClientSession() as session:
             """
@@ -176,12 +186,28 @@ class OwnYourDataVault(BasePersonalDataStorage):
 
         return dri_value
 
-    async def load_table(self, table: str) -> str:
-        assert_type(table, str)
+    async def load_multiple(
+        self, *, table: str = None, oca_schema_base_dri: str = None
+    ):
         await self.update_token_when_expired()
+        url = f"{self.api_url}/api/data"
 
-        url = f"{self.api_url}/api/data?table=dip.data.{table}&f=plain"
-        LOGGER.debug("OYD LOAD TABLE url [ %s ]", url)
+        parameter_count = 0
+
+        if table is not None:
+            url = url + get_delimiter(parameter_count) + f"table=dip.data.{table}"
+            parameter_count += 1
+        if oca_schema_base_dri is not None:
+            url = (
+                url
+                + get_delimiter(parameter_count)
+                + f"schema_dri={oca_schema_base_dri}"
+            )
+            parameter_count += 1
+
+        url = url + get_delimiter(parameter_count) + "f=plain"
+
+        LOGGER.info("OYD LOAD TABLE url [ %s ]", url)
         async with ClientSession() as session:
             result = await session.get(
                 url, headers={"Authorization": "Bearer " + self.token["access_token"]}
@@ -194,7 +220,7 @@ class OwnYourDataVault(BasePersonalDataStorage):
     async def ping(self) -> [bool, str]:
         try:
             await self.update_token()
-        except ClientConnectionError as err:
+        except (ClientConnectionError, ClientError) as err:
             return [False, str(err)]
         except PDSError as err:
             return [False, str(err)]

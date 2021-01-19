@@ -15,8 +15,18 @@ from aries_cloudagent.aathcf.credentials import (
     verify_proof,
 )
 from .base import BaseHolder, HolderError
-from aries_cloudagent.pdstorage_thcf.api import load_string, load_table, save_string
+from aries_cloudagent.pdstorage_thcf.api import (
+    load_multiple,
+    pds_load,
+    pds_get_active_name,
+    pds_save,
+    pds_save_a,
+)
 from aries_cloudagent.pdstorage_thcf.error import PDSNotFoundError
+from aries_cloudagent.pdstorage_thcf.models.table_that_matches_dris_with_pds import (
+    DriStorageMatchTable,
+)
+from aries_cloudagent.storage.error import StorageNotFoundError
 
 CREDENTIALS_TABLE = "credentials"
 
@@ -37,10 +47,12 @@ class PDSHolder(BaseHolder):
 
         """
         try:
-            credential = await load_string(self.context, credential_id)
+            credential = await pds_load(self.context, credential_id)
         except PDSNotFoundError as err:
             raise HolderError(err.roll_up)
 
+        credential = json.dumps(credential)
+        assert_type(credential, str)
         return credential
 
     async def delete_credential(self, credential_id: str):
@@ -113,8 +125,6 @@ class PDSHolder(BaseHolder):
             credential = await self.get_credential(credential_id)
         except HolderError as err:
             raise HolderError(f"credential_id {credential_id} is invalid {err.roll_up}")
-        assert_type(credential, str)
-        print(credential)
         credential = json.loads(credential, object_pairs_hook=OrderedDict)
         """
 
@@ -123,7 +133,7 @@ class PDSHolder(BaseHolder):
         TODO: caching credentials of same credential_id so there wont be duplicates
         or maybe set will do
 
-        TODO: this checking is very shallow, we need something robust
+        TODO: this check is very shallow, we need something robust
 
         """
         """
@@ -244,10 +254,10 @@ class PDSHolder(BaseHolder):
             raise HolderError("Proof is incorrect, could not verify")
 
         try:
-            record_id = await save_string(
+            record_id = await pds_save_a(
                 self.context,
-                json.dumps(credential_data),
-                metadata=json.dumps({"table": CREDENTIALS_TABLE}),
+                credential_data,
+                table=CREDENTIALS_TABLE,
             )
         except PDSNotFoundError as err:
             raise HolderError(err.roll_up)
@@ -262,11 +272,16 @@ class PDSHolder(BaseHolder):
 
         """
         try:
-            query = await load_table(self.context, CREDENTIALS_TABLE)
+            query = await load_multiple(self.context, table=CREDENTIALS_TABLE)
         except PDSNotFoundError as err:
             raise HolderError(err.roll_up)
 
-        query = json.loads(query)
+        active_pds = await pds_get_active_name(self.context)
+        for i in query:
+            try:
+                await DriStorageMatchTable.retrieve_by_id(self.context, i["dri"])
+            except StorageNotFoundError:
+                await DriStorageMatchTable(i["dri"], active_pds).save(self.context)
 
         self.logger.info("Credentials GET CREDENTIALS %s", query)
 

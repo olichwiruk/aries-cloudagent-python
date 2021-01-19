@@ -8,6 +8,8 @@ from .....messaging.models.base_record import BaseExchangeRecord, BaseExchangeSc
 from .....messaging.valid import UUIDFour
 from aries_cloudagent.aathcf.credentials import PresentationRequestSchema
 from aries_cloudagent.config.injection_context import InjectionContext
+from aries_cloudagent.pdstorage_thcf.api import pds_load, pds_save, pds_save_a
+from collections import OrderedDict
 
 
 class THCFPresentationExchange(BaseExchangeRecord):
@@ -49,8 +51,8 @@ class THCFPresentationExchange(BaseExchangeRecord):
         state: str = None,
         presentation_proposal: dict = None,
         presentation_request: dict = None,
-        presentation: dict = None,
-        acknowledgment_credential: str = None,
+        presentation_dri: str = None,
+        acknowledgment_credential_dri: str = None,
         verified: str = None,
         auto_present: bool = False,
         error_msg: str = None,
@@ -67,12 +69,12 @@ class THCFPresentationExchange(BaseExchangeRecord):
         self.presentation_proposal = presentation_proposal
         self.presentation_request = presentation_request
         self.prover_public_did = prover_public_did
-        self.acknowledgment_credential = acknowledgment_credential
-        self.presentation = presentation
+        self.presentation_dri = presentation_dri
         self.verified = verified
         self.auto_present = auto_present
         self.error_msg = error_msg
         self.trace = trace
+        self.acknowledgment_credential_dri = None
 
     @property
     def presentation_exchange_id(self) -> str:
@@ -90,9 +92,9 @@ class THCFPresentationExchange(BaseExchangeRecord):
                 "initiator",
                 "presentation_proposal",
                 "presentation_request",
-                "acknowledgment_credential",
+                "acknowledgment_credential_dri",
                 "prover_public_did",
-                "presentation",
+                "presentation_dri",
                 "role",
                 "state",
                 "auto_present",
@@ -137,6 +139,26 @@ class THCFPresentationExchange(BaseExchangeRecord):
     def __eq__(self, other: Any) -> bool:
         """Comparison between records."""
         return super().__eq__(other)
+
+    async def verifier_ack_cred_pds_set(self, context, credential: OrderedDict):
+        dri = await pds_save_a(context, credential, table="Acknowledgment")
+        self.acknowledgment_credential_dri = dri
+
+    async def ack_cred_pds_get(self, context):
+        assert self.acknowledgment_credential_dri is not None
+        credential = await pds_load(context, self.acknowledgment_credential)
+        return credential
+
+    async def presentation_pds_set(self, context, presentation):
+        self.presentation_dri = await pds_save_a(
+            context, presentation, table="Presentation"
+        )
+
+    async def presentation_pds_get(self, context):
+        if self.presentation_dri is None:
+            return None
+        result = await pds_load(context, self.presentation_dri)
+        return result
 
 
 class THCFPresentationExchangeSchema(BaseExchangeSchema):
@@ -187,9 +209,6 @@ class THCFPresentationExchangeSchema(BaseExchangeSchema):
         required=False,
         description="presentation request (also known as proof request)",
     )
-    presentation = fields.Dict(
-        required=False, description="presentation (also known as proof)"
-    )
     verified = fields.Str(  # tag: must be a string
         required=False,
         description="Whether presentation is verified: true or false",
@@ -205,4 +224,5 @@ class THCFPresentationExchangeSchema(BaseExchangeSchema):
         required=False, description="Error message", example="Invalid structure"
     )
     prover_public_did = fields.Str(required=False)
-    acknowledgment_credential = fields.Str(required=False)
+    acknowledgment_credential_dri = fields.Str(required=False)
+    presentation_dri = fields.Str(required=False)

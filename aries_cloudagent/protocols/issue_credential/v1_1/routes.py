@@ -21,11 +21,11 @@ from .utils import (
     retrieve_connection,
     create_credential,
 )
-from aries_cloudagent.aathcf.credentials import raise_exception_invalid_state
 from aries_cloudagent.wallet.base import BaseWallet
+from aries_cloudagent.pdstorage_thcf.error import PDSError
 
 
-LOG = logging.getLogger(__name__).info
+LOGGER = logging.getLogger(__name__)
 
 
 class RequestCredentialSchema(OpenAPISchema):
@@ -54,12 +54,10 @@ async def issue_credential(request: web.BaseRequest):
     credential_exchange_id = request.query.get("credential_exchange_id")
     exchange = await retrieve_credential_exchange(context, credential_exchange_id)
 
-    raise_exception_invalid_state(
-        exchange,
-        CredentialExchangeRecord.STATE_REQUEST_RECEIVED,
-        CredentialExchangeRecord.ROLE_ISSUER,
-        web.HTTPBadRequest,
-    )
+    if exchange.role != exchange.ROLE_ISSUER:
+        raise web.HTTPBadRequest(reason="Invalid exchange role")
+    if exchange.state != exchange.STATE_REQUEST_RECEIVED:
+        raise web.HTTPBadRequest(reason="Invalid exchange state")
 
     connection = await retrieve_connection(context, exchange.connection_id)
     request = exchange.credential_request
@@ -67,15 +65,20 @@ async def issue_credential(request: web.BaseRequest):
         context,
         request,
         their_public_did=exchange.their_public_did,
-        exception=web.HTTPError,
+        exception=web.HTTPInternalServerError,
     )
 
-    LOG("CREDENTIAL %s", credential)
+    LOGGER.info("CREDENTIAL %s", credential)
     issue = CredentialIssue(credential=credential)
     issue.assign_thread_id(exchange.thread_id)
     await outbound_handler(issue, connection_id=connection.connection_id)
 
     exchange.state = CredentialExchangeRecord.STATE_ISSUED
+    try:
+        await exchange.issuer_credential_pds_set(context, credential)
+    except PDSError as err:
+        raise web.HTTPInternalServerError(reason=err.roll_up)
+
     await exchange.save(context)
 
     return web.json_response(
@@ -154,9 +157,13 @@ async def retrieve_credential_exchange_endpoint(request: web.BaseRequest):
 
     result = []
     for i in records:
-        result.append(i.serialize())
+        serialized = i.serialize()
+        credential_exists = await i.credential_pds_get(context)
+        if credential_exists is not None:
+            serialized["credential"] = credential_exists
+        result.append(serialized)
 
-    return web.json_response(result)
+    return web.json_response({"success": True, "result": result})
 
 
 async def register(app: web.Application):

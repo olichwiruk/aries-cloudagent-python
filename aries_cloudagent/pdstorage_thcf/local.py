@@ -14,23 +14,25 @@ class LocalPersonalDataStorage(BasePersonalDataStorage):
 
         self.settings = {"no_configuration_needed": "yes"}
 
-    async def load(self, id: str) -> str:
+    async def load(self, id: str) -> dict:
         """
         returns: None, on record not found
         """
         result = self.storage.get(id)
 
-        return result
+        return {"content": result}
 
-    async def save(self, record: str, metadata: str) -> str:
+    async def save(self, record, metadata: dict) -> str:
         result = encode(record)
         self.storage[result] = record
 
         return result
 
-    async def load_table(self, table: str) -> str:
+    async def load_multiple(
+        self, *, table: str = None, oca_schema_base_dri: str = None
+    ) -> str:
 
-        return "tables not supported by active PDStorage "
+        assert not "Load multiple not supported by active PDS"
 
     async def ping(self) -> [bool, str]:
         return [True, None]

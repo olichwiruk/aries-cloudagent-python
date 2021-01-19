@@ -1,8 +1,9 @@
 from .base import BasePersonalDataStorage
-from .error import PDSNotFoundError
-from aiohttp import ClientSession, FormData, ClientConnectionError
+from .error import PDSNotFoundError, PDSError, PDSRecordNotFoundError
+from aiohttp import ClientSession, FormData, ClientConnectionError, ClientError
 import json
 import logging
+from collections import OrderedDict
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class DataVault(BasePersonalDataStorage):
         self.settings = {}
         # self.settings = {"api_url": "https://data-vault.argo.colossi.network"}
 
-    async def load(self, id: str) -> str:
+    async def load(self, id: str) -> dict:
         """
         Returns: None on record not found
         """
@@ -39,14 +40,17 @@ class DataVault(BasePersonalDataStorage):
 
         # seek errors
         try:
-            response_json = json.loads(response_text)
+            response_json = json.loads(response_text, object_pairs_hook=OrderedDict)
             if "errors" in response_json:
-                return None
+                if response_json["errors"] == "record not found":
+                    raise PDSRecordNotFoundError(f"Record with id {id} NOT FOUND!")
+                else:
+                    raise PDSError(response_json)
         except json.JSONDecodeError:
             LOGGER.warning("Error found in data_vault load %s", response_text)
             pass
 
-        return response_text
+        return {"content": response_text}
 
     async def save(self, record: str, metadata: str) -> str:
         data = FormData()
@@ -67,9 +71,11 @@ class DataVault(BasePersonalDataStorage):
 
         return response_json["content_dri"]
 
-    async def load_table(self, table: str) -> str:
+    async def load_multiple(
+        self, *, table: str = None, oca_schema_base_dri: str = None
+    ) -> str:
 
-        return "tables not supported by active PDStorage"
+        assert not "Load multiple not supported by active PDS"
 
     async def ping(self) -> [bool, str]:
         """
@@ -78,7 +84,12 @@ class DataVault(BasePersonalDataStorage):
         """
         try:
             await self.load("ping")
-        except ClientConnectionError as err:
+        except (
+            ClientConnectionError,
+            ClientError,
+            PDSRecordNotFoundError,
+            PDSError,
+        ) as err:
             return [False, str(err)]
 
         return [True, None]

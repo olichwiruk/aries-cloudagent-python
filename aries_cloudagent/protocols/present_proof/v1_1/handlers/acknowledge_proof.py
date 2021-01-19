@@ -11,14 +11,12 @@ from aries_cloudagent.protocols.present_proof.v1_1.models.presentation_exchange 
 from aries_cloudagent.protocols.present_proof.v1_1.messages.acknowledge_proof import (
     AcknowledgeProof,
 )
-from aries_cloudagent.verifier.base import BaseVerifier
 from ..models.utils import retrieve_exchange_by_thread
+from aries_cloudagent.holder.base import BaseHolder, HolderError
 import json
 from collections import OrderedDict
-from aries_cloudagent.aathcf.credentials import raise_exception_invalid_state
 
 
-# TODO Error handling
 class AcknowledgeProofHandler(BaseHandler):
     """
     Message handler logic for incoming credential presentations / incoming proofs.
@@ -27,29 +25,41 @@ class AcknowledgeProofHandler(BaseHandler):
     async def handle(self, context: RequestContext, responder: BaseResponder):
         debug_handler(self._logger.info, context, AcknowledgeProof)
 
-        exchange_record: THCFPresentationExchange = await retrieve_exchange_by_thread(
+        exchange: THCFPresentationExchange = await retrieve_exchange_by_thread(
             context,
             responder.connection_id,
             context.message._thread_id,
             HandlerException,
         )
 
-        raise_exception_invalid_state(
-            exchange_record,
-            THCFPresentationExchange.STATE_PRESENTATION_SENT,
-            THCFPresentationExchange.ROLE_PROVER,
-            HandlerException,
-        )
+        if exchange.role != exchange.ROLE_PROVER:
+            raise HandlerException(reason="Invalid exchange role")
+        if exchange.state != exchange.STATE_PRESENTATION_SENT:
+            raise HandlerException(reason="Invalid exchange state")
 
-        exchange_record.acknowledgment_credential = context.message.credential
-        exchange_record.state = exchange_record.STATE_ACKNOWLEDGED
-        await exchange_record.save(context)
+        holder: BaseHolder = await context.inject(BaseHolder)
+        credential_data = json.loads(
+            context.message.credential, object_pairs_hook=OrderedDict
+        )
+        try:
+            credential_dri = await holder.store_credential(
+                credential_definition={},
+                credential_data=credential_data,
+                credential_request_metadata={},
+            )
+        except HolderError as err:
+            raise HandlerException("Error on store_credential async!", err.roll_up)
+
+        exchange.acknowledgment_credential_dri = credential_dri
+        exchange.state = exchange.STATE_ACKNOWLEDGED
+        await exchange.save(context)
 
         await responder.send_webhook(
             "present_proof",
             {
                 "type": "acknowledge_proof",
-                "exchange_record_id": exchange_record._id,
+                "exchange_record_id": exchange._id,
                 "connection_id": responder.connection_id,
+                "acknowledgment_credential_dri": credential_dri,
             },
         )

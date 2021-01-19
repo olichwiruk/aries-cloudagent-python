@@ -12,13 +12,14 @@ from aiohttp_apispec import (
 
 from marshmallow import fields, validate, Schema
 from .base import BasePersonalDataStorage
-from .api import load_string, save_string, load_table
+from .api import pds_load, pds_save, load_multiple
 from .error import PDSError
 from ..connections.models.connection_record import ConnectionRecord
 from ..wallet.error import WalletError
 from ..storage.error import StorageNotFoundError, StorageError
 from .message_types import ExchangeDataA
 from .models.saved_personal_storage import SavedPersonalStorage
+from aries_cloudagent.pdstorage_thcf.api import pds_oca_data_format_save
 
 
 class SaveRecordSchema(Schema):
@@ -53,11 +54,11 @@ async def save_record(request: web.BaseRequest):
     body = await request.json()
 
     try:
-        payload_id = await save_string(context, body.get("payload"))
+        payload_id = await pds_save(context, body.get("payload"))
     except PDSError as err:
-        raise web.HTTPError(reason=err.roll_up)
+        raise web.HTTPInternalServerError(reason=err.roll_up)
 
-    return web.json_response({"payload_id": payload_id})
+    return web.json_response({"success": True, "payload_id": payload_id})
 
 
 @docs(
@@ -69,11 +70,11 @@ async def get_record(request: web.BaseRequest):
     payload_id = request.match_info["payload_id"]
 
     try:
-        result = await load_string(context, payload_id)
+        result = await pds_load(context, payload_id)
     except PDSError as err:
-        raise web.HTTPError(reason=err.roll_up)
+        raise web.HTTPInternalServerError(reason=err.roll_up)
 
-    return web.json_response({"payload": result})
+    return web.json_response({"success": True, "payload": result})
 
 
 @docs(
@@ -94,7 +95,7 @@ async def get_record_from_agent(request: web.BaseRequest):
     outbound_handler = request.app["outbound_message_router"]
     message = ExchangeDataA(payload_dri=payload_id)
     await outbound_handler(message, connection_id=connection_id)
-    return web.json_response({"message_sent": "success"})
+    return web.json_response({"success": True})
 
 
 @docs(
@@ -191,12 +192,13 @@ async def get_settings(request: web.BaseRequest):
         assert isinstance(saved_pds, list), f"not list {saved_pds}, {type(saved_pds)}"
         print("get_settings saved_pds:", saved_pds)
     except StorageError as err:
-        raise web.HTTPError(reason=err.roll_up)
+        raise web.HTTPInternalServerError(reason=err.roll_up)
 
     response_message = {}
     for pds in saved_pds:
         response_message.update({f"{pds.type}, {pds.name}": pds.settings})
 
+    # TODO "success": True,
     return web.json_response(response_message)
 
 
@@ -239,7 +241,9 @@ async def set_active_storage_type(request: web.BaseRequest):
     await active_pds.save(context)
     await pds_to_activate.save(context)
 
-    return web.json_response({"success_type_exists": f"{pds_type}, {instance_name}"})
+    return web.json_response(
+        {"success": True, "success_type_exists": f"{pds_type}, {instance_name}"}
+    )
 
 
 @docs(
@@ -265,31 +269,119 @@ async def get_storage_types(request: web.BaseRequest):
 
     return web.json_response(
         {
+            "success": True,
             "active": f"{active_pds.type}, {active_pds.name}",
             "types": registered_type_names,
         }
     )
 
 
+class GetMultipleRecordsSchema(Schema):
+    table = fields.Str(required=False)
+    oca_schema_base_dri = fields.Str(required=False)
+
+
 @docs(
     tags=["PersonalDataStorage"],
     summary="Retrieve data from a public data storage using data id",
 )
-async def get_table_of_records(request: web.BaseRequest):
+@querystring_schema(GetMultipleRecordsSchema)
+async def get_multiple_records(request: web.BaseRequest):
     context = request.app["request_context"]
-    table = request.match_info["table"]
+    table = request.query.get("table")
+    oca_schema_base_dri = request.query.get("oca_schema_base_dri")
 
     try:
-        result = await load_table(context, table)
+        result = await load_multiple(
+            context, table=table, oca_schema_base_dri=oca_schema_base_dri
+        )
     except PDSError as err:
-        raise web.HTTPError(reason=err.roll_up)
+        raise web.HTTPInternalServerError(reason=err.roll_up)
 
-    return web.json_response(json.loads(result))
+    return web.json_response({"success": True, "result": result})
 
 
-@docs(tags=["Swagger"], summary="Get agent's swagger schema in json format")
-async def get_swagger_schema(request: web.BaseRequest):
-    return web.json_response(request.app._state["swagger_dict"])
+class GetMultipleRecordsForOcaSchema(Schema):
+    oca_schema_base_dris = fields.List(fields.Str(required=True))
+
+
+@docs(
+    tags=["PersonalDataStorage"],
+)
+@querystring_schema(GetMultipleRecordsForOcaSchema)
+async def get_multiple_records_for_oca_form_filling(request: web.BaseRequest):
+    context = request.app["request_context"]
+    dri_list = request.query
+    dri_list = dri_list.getall("oca_schema_base_dris")
+
+    try:
+        result = await load_multiple(context, oca_schema_base_dri=dri_list)
+    except PDSError as err:
+        raise web.HTTPInternalServerError(reason=err.roll_up)
+
+    return web.json_response({"success": True, "result": result})
+
+
+class PostMultipleRecordsForOcaSchema(Schema):
+    data = fields.Dict(keys=fields.Str(), values=fields.Dict())
+
+
+@docs(
+    tags=["PersonalDataStorage"],
+    summary="Post data in bulk",
+    description="""
+    Example input:
+    {
+        "data":{
+            "DRI:12345":{
+                "t":"o",
+                "p":{
+                    "address":"DRI:123456",
+                    "test_value":"ok"
+                }
+            },
+            "DRI:123456":{
+                "t":"o",
+                "p":{
+                    "second_dri":"DRI:1234567",
+                    "test_value":"ok"
+                }
+            },
+            "DRI:1234567":{
+                "t":"o",
+                "p":{
+                    "third_dri":"DRI:123456",
+                    "test_value":"ok"
+                }
+            },
+            "1234567":{
+                "t":"o",
+                "p":{
+                    "third_dri":"DRI:123456",
+                    "test_value":"ok"
+                }
+            }
+        }
+    }
+    """,
+)
+@request_schema(PostMultipleRecordsForOcaSchema)
+async def post_multiple_records_for_oca_form_filling(request: web.BaseRequest):
+    context = request.app["request_context"]
+    body = await request.json()
+    data = body.get("data")
+
+    try:
+        result = await pds_oca_data_format_save(context, data)
+    except PDSError as err:
+        raise web.HTTPInternalServerError(err)
+
+    return web.json_response({"success": True, "result": result})
+
+
+# @docs(tags=["Swagger"], summary="Get agent's swagger schema in json format")
+# async def get_swagger_schema(request: web.BaseRequest):
+#     return web.json_response(request.app._state["swagger_dict"])
 
 
 async def register(app: web.Application):
@@ -319,10 +411,14 @@ async def register(app: web.Application):
                 allow_head=False,
             ),
             web.get(
-                "/pds/table/{table}",
-                get_table_of_records,
+                "/pds/current/",
+                get_multiple_records_for_oca_form_filling,
                 allow_head=False,
             ),
-            web.get("/swagger", get_swagger_schema, allow_head=False),
+            web.post(
+                "/pds/current/",
+                post_multiple_records_for_oca_form_filling,
+            ),
+            # web.get("/swagger", get_swagger_schema, allow_head=False),
         ]
     )

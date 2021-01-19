@@ -14,27 +14,33 @@ from marshmallow import fields
 from ....connections.models.connection_record import ConnectionRecord
 from ....holder.base import BaseHolder, HolderError
 from .models.presentation_exchange import THCFPresentationExchange
-from ....messaging.models.openapi import OpenAPISchema
+from ....messaging.models.openapi import OpenAPISchema, Schema
 from aries_cloudagent.protocols.issue_credential.v1_1.utils import retrieve_connection
-from aries_cloudagent.aathcf.credentials import (
-    raise_exception_invalid_state,
-)
 from .messages.request_proof import RequestProof
 from .messages.present_proof import PresentProof
 from .models.utils import retrieve_exchange
 import logging
-import collections
-from aries_cloudagent.pdstorage_thcf.api import load_table
+from aries_cloudagent.pdstorage_thcf.api import (
+    load_multiple,
+    pds_load,
+    pds_oca_data_format_save,
+    pds_save,
+    pds_save_a,
+)
 from aries_cloudagent.holder.pds import CREDENTIALS_TABLE
 from aries_cloudagent.pdstorage_thcf.error import PDSError
-from ...issue_credential.v1_1.utils import create_credential
+from aries_cloudagent.protocols.issue_credential.v1_1.utils import (
+    create_credential,
+    create_credential_a,
+)
 from aries_cloudagent.protocols.issue_credential.v1_1.routes import (
     routes_get_public_did,
 )
 
-LOG = logging.getLogger(__name__).info
-
 from .messages.acknowledge_proof import AcknowledgeProof
+from collections import OrderedDict
+
+LOGGER = logging.getLogger(__name__)
 
 
 class PresentationRequestAPISchema(OpenAPISchema):
@@ -59,7 +65,7 @@ class RetrieveExchangeQuerySchema(OpenAPISchema):
 
 class AcknowledgeProofSchema(OpenAPISchema):
     exchange_record_id = fields.Str(required=True)
-    decision = fields.Str(required=True)
+    status = fields.Boolean(required=True)
 
 
 @docs(tags=["present-proof"], summary="Sends a proof presentation")
@@ -93,7 +99,7 @@ async def request_presentation_api(request: web.BaseRequest):
         presentation_request=presentation_request,
     )
 
-    LOG("exchange_record %s", exchange_record)
+    LOGGER.debug("exchange_record %s", exchange_record)
     await exchange_record.save(context)
 
     return web.json_response(
@@ -127,26 +133,22 @@ async def present_proof_api(request: web.BaseRequest):
     exchange_record_id = body.get("exchange_record_id")
     credential_id = body.get("credential_id")
 
-    exchange_record = await retrieve_exchange(
-        context, exchange_record_id, web.HTTPNotFound
-    )
+    exchange = await retrieve_exchange(context, exchange_record_id, web.HTTPNotFound)
 
-    raise_exception_invalid_state(
-        exchange_record,
-        THCFPresentationExchange.STATE_REQUEST_RECEIVED,
-        THCFPresentationExchange.ROLE_PROVER,
-        web.HTTPBadRequest,
-    )
+    if exchange.role != exchange.ROLE_PROVER:
+        raise web.HTTPBadRequest(reason="Invalid exchange role")
+    if exchange.state != exchange.STATE_REQUEST_RECEIVED:
+        raise web.HTTPBadRequest(reason="Invalid exchange state")
 
     connection_record: ConnectionRecord = await retrieve_connection(
-        context, exchange_record.connection_id
+        context, exchange.connection_id
     )
 
     try:
         holder: BaseHolder = await context.inject(BaseHolder)
         requested_credentials = {"credential_id": credential_id}
         presentation = await holder.create_presentation(
-            presentation_request=exchange_record.presentation_request,
+            presentation_request=exchange.presentation_request,
             requested_credentials=requested_credentials,
             schemas={},
             credential_definitions={},
@@ -158,72 +160,111 @@ async def present_proof_api(request: web.BaseRequest):
     message = PresentProof(
         credential_presentation=presentation, prover_public_did=public_did
     )
-    message.assign_thread_id(exchange_record.thread_id)
+    message.assign_thread_id(exchange.thread_id)
     await outbound_handler(message, connection_id=connection_record.connection_id)
 
-    exchange_record.state = exchange_record.STATE_PRESENTATION_SENT
-    exchange_record.presentation = json.loads(
-        presentation, object_pairs_hook=collections.OrderedDict
-    )
-    await exchange_record.save(context)
+    exchange.state = exchange.STATE_PRESENTATION_SENT
+    await exchange.presentation_pds_set(context, presentation)
+    await exchange.save(context)
 
     return web.json_response(
         {
             "success": True,
             "message": "proof sent and exchange updated",
-            "exchange_id": exchange_record._id,
+            "exchange_id": exchange._id,
         }
     )
 
 
 @docs(tags=["present-proof"], summary="retrieve exchange record")
-@request_schema(AcknowledgeProofSchema())
+@querystring_schema(AcknowledgeProofSchema())
 async def acknowledge_proof(request: web.BaseRequest):
     context = request.app["request_context"]
     outbound_handler = request.app["outbound_message_router"]
-    body = await request.json()
+    query = request.query
 
-    exchange_record: THCFPresentationExchange = await retrieve_exchange(
-        context, body.get("exchange_record_id"), web.HTTPNotFound
+    exchange: THCFPresentationExchange = await retrieve_exchange(
+        context, query.get("exchange_record_id"), web.HTTPNotFound
     )
 
-    raise_exception_invalid_state(
-        exchange_record,
-        THCFPresentationExchange.STATE_PRESENTATION_RECEIVED,
-        THCFPresentationExchange.ROLE_VERIFIER,
-        web.HTTPBadRequest,
-    )
+    if exchange.role != exchange.ROLE_VERIFIER:
+        raise web.HTTPBadRequest(reason="Invalid exchange role")
+    if exchange.state != exchange.STATE_PRESENTATION_RECEIVED:
+        raise web.HTTPBadRequest(reason="Invalid exchange state")
 
     connection_record: ConnectionRecord = await retrieve_connection(
-        context, exchange_record.connection_id
+        context, exchange.connection_id
     )
 
-    credential = await create_credential(
+    presentation = await exchange.presentation_pds_get(context)
+    presentation_urn = presentation["id"]
+    credential = await create_credential_a(
         context,
-        {
-            "credential_type": "ProofAcknowledgment",
-            "credential_values": {
-                "decision": body.get("decision"),
+        credential_type="ProofAcknowledgment",
+        credential_values={
+            "oca_data": {
+                "verified": str(query.get("status")),
+                "presentation_urn": presentation_urn,
+                "issuer_name": context.settings.get("default_label"),
             },
+            "oca_schema_dri": "2VTc8rKY6pHcjfi8uLT3pxCYaKGNP8MdWB5LKz1zWebc",
         },
-        their_public_did=exchange_record.prover_public_did,
-        exception=web.HTTPError,
+        their_public_did=exchange.prover_public_did,
+        exception=web.HTTPInternalServerError,
     )
 
     message = AcknowledgeProof(credential=credential)
-    message.assign_thread_id(exchange_record.thread_id)
+    message.assign_thread_id(exchange.thread_id)
     await outbound_handler(message, connection_id=connection_record.connection_id)
 
-    exchange_record.acknowledgment_credential = credential
-    exchange_record.state = exchange_record.STATE_ACKNOWLEDGED
-    await exchange_record.save(context)
+    exchange.state = exchange.STATE_ACKNOWLEDGED
+    await exchange.verifier_ack_cred_pds_set(context, credential)
+    await exchange.save(context)
     return web.json_response(
         {
             "success": True,
             "message": "ack sent and exchange record updated",
-            "exchange_record_id": exchange_record._id,
+            "exchange_record_id": exchange._id,
+            "ack_credential_dri": exchange.acknowledgment_credential_dri,
         }
     )
+
+
+class DebugEndpointSchema(OpenAPISchema):
+    # {DRI1: [{timestamp: 23423453453534, data: {...}},{}], DRI2: [{},{}], DRI3: [{},{}] }
+    #     {d: {456...}, t: Date.current.getMilliseconds()} } d - data; t - timestamp
+    oca_data = fields.List(fields.Str())
+
+
+@docs(tags=["PersonalDataStorage"])
+@querystring_schema(DebugEndpointSchema)
+async def debug_endpoint(request: web.BaseRequest):
+    context = request.app["request_context"]
+
+    data = {"data": "data"}
+    payload_id = await pds_save_a(context, data, oca_schema_dri="12345", table="test")
+    ret = await pds_load(context, payload_id)
+    assert ret == data
+
+    # body = await request.json()
+    # oca_data = body["oca_data"]
+    # print(oca_data)
+
+    data = {
+        "DRI:12345": {"t": "o", "p": {"address": "DRI:123456", "test_value": "ok"}},
+        "DRI:123456": {
+            "t": "o",
+            "p": {"second_dri": "DRI:1234567", "test_value": "ok"},
+        },
+        "DRI:1234567": {"t": "o", "p": {"third_dri": "DRI:123456", "test_value": "ok"}},
+        "1234567": {"t": "o", "p": {"third_dri": "DRI:123456", "test_value": "ok"}},
+    }
+
+    ids = await pds_oca_data_format_save(context, data)
+    # serialized = await pds_oca_data_format_serialize_dict_recursive(context, data)
+    multiple = await load_multiple(context, oca_schema_base_dri=["12345", "123456"])
+
+    return web.json_response({"success": True, "result": ids, "multiple": multiple})
 
 
 @docs(tags=["present-proof"], summary="retrieve exchange record")
@@ -235,77 +276,52 @@ async def retrieve_credential_exchange_api(request: web.BaseRequest):
 
     result = []
     for i in records:
-        result.append(i.serialize())
+        serialize = i.serialize()
+        if i.presentation_dri is not None:
+            serialize["presentation"] = await i.presentation_pds_get(context)
+        result.append(serialize)
 
     """
     Download credentials
     """
 
     try:
-        credentials = await load_table(context, CREDENTIALS_TABLE)
-        credentials = json.loads(credentials)
+        credentials = await load_multiple(context, table=CREDENTIALS_TABLE)
     except json.JSONDecodeError:
-        LOG(
+        LOGGER.warn(
             "Error parsing credentials, perhaps there are no credentials in store %s",
             credentials,
         )
         credentials = {}
     except PDSError as err:
-        LOG("PDSError %s", err.roll_up)
+        LOGGER.warn("PDSError %s", err.roll_up)
         credentials = {}
-
-    """
-    DEBUG VERSION
-    for rec in result:
-        rec["list_of_matching_credentials"] = []
-        for cred in credentials:
-            cred = json.loads(cred)
-            cred_content = json.loads(cred["content"])
-            i_have_credential = True
-            for attr in rec["presentation_request"]["requested_attributes"]:
-                if attr not in cred_content["credentialSubject"]:
-                    i_have_credential = False
-
-            if i_have_credential is True:
-                rec["list_of_matching_credentials"].append(cred["dri"])
-    """
 
     """
     Match the credential requests with credentials in the possesion of the agent
     in this case we check if both issuer_did and oca_schema_dri are correct
-
-    TODO: Optimization, create a dictionary of credential - schema base matches,
-    with schema base as key
     """
 
     for rec in result:
         rec["list_of_matching_credentials"] = []
         for cred in credentials:
-            cred_content = json.loads(cred["content"])
+            try:
+                cred_content = json.loads(cred["content"])
+            except (json.JSONDecodeError, TypeError):
+                cred_content = cred["content"]
 
             print("Cred content:", cred_content)
 
             record_base_dri = rec["presentation_request"].get(
                 "schema_base_dri", "INVALIDA"
             )
-            # record_issuer_did = rec["presentation_request"].get(
-            #     "issuer_did", "INVALIDB"
-            # )
             cred_base_dri = cred_content["credentialSubject"].get(
                 "oca_schema_dri", "INVALIDC"
             )
-            # cred_issuer_did = cred_content["credentialSubject"].get(
-            #     "issuer_did", "INVALIDD"
-            # )
-
-            if (
-                record_base_dri
-                == cred_base_dri
-                # and record_issuer_did == cred_issuer_did
-            ):
+            if record_base_dri == cred_base_dri:
                 rec["list_of_matching_credentials"].append(cred["dri"])
 
-    return web.json_response(result)
+    return web.json_response({"success": True, "result": result})
 
 
 async def register(app: web.Application):
@@ -330,6 +346,7 @@ async def register(app: web.Application):
                 retrieve_credential_exchange_api,
                 allow_head=False,
             ),
+            web.post("/present-proof/debug", debug_endpoint),
         ]
     )
 
