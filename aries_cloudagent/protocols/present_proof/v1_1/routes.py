@@ -164,7 +164,7 @@ async def present_proof_api(request: web.BaseRequest):
     await outbound_handler(message, connection_id=connection_record.connection_id)
 
     exchange.state = exchange.STATE_PRESENTATION_SENT
-    await exchange.presentation_pds_set(context, presentation)
+    await exchange.presentation_pds_set(context, json.loads(presentation))
     await exchange.save(context)
 
     return web.json_response(
