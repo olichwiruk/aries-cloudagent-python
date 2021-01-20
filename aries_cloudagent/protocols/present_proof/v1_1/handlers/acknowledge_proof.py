@@ -41,6 +41,7 @@ class AcknowledgeProofHandler(BaseHandler):
         credential_data = json.loads(
             context.message.credential, object_pairs_hook=OrderedDict
         )
+
         try:
             credential_dri = await holder.store_credential(
                 credential_definition={},

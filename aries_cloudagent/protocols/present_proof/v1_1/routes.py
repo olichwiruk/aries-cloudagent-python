@@ -196,18 +196,16 @@ async def acknowledge_proof(request: web.BaseRequest):
         context, exchange.connection_id
     )
 
-    presentation = await exchange.presentation_pds_get(context)
-    presentation_urn = presentation["id"]
     credential = await create_credential_a(
         context,
         credential_type="ProofAcknowledgment",
         credential_values={
             "oca_data": {
                 "verified": str(query.get("status")),
-                "presentation_urn": presentation_urn,
+                "presentation_dri": exchange.presentation_dri,
                 "issuer_name": context.settings.get("default_label"),
             },
-            "oca_schema_dri": "2VTc8rKY6pHcjfi8uLT3pxCYaKGNP8MdWB5LKz1zWebc",
+            "oca_schema_dri": "bCN4tzZssT4sDDFFTh5AmoesdQeeTSyjNrQ6gxnCerkn",
         },
         their_public_did=exchange.prover_public_did,
         exception=web.HTTPInternalServerError,
