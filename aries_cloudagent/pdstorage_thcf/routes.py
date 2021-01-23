@@ -21,6 +21,7 @@ from .message_types import ExchangeDataA
 from .models.saved_personal_storage import SavedPersonalStorage
 from aries_cloudagent.pdstorage_thcf.api import pds_oca_data_format_save
 
+OCA_DATA_CHUNKS = "tda.oca_chunks"
 
 class SaveRecordSchema(Schema):
     payload = fields.Str(required=True)
@@ -315,7 +316,9 @@ async def get_multiple_records_for_oca_form_filling(request: web.BaseRequest):
     dri_list = dri_list.getall("oca_schema_base_dris")
 
     try:
-        result = await load_multiple(context, oca_schema_base_dri=dri_list)
+        result = {}
+        for dri in dri_list:
+            result[dri] = await load_multiple(context, table=OCA_DATA_CHUNKS + "." + dri)
     except PDSError as err:
         raise web.HTTPInternalServerError(reason=err.roll_up)
 
