@@ -2,18 +2,6 @@ FROM bcgovimages/von-image:py36-1.11-1
 
 ENV ENABLE_PTVSD 0
 
-ADD requirements*.txt ./
-
-RUN pip3 install --no-cache-dir -r requirements.txt -r requirements.dev.txt -r requirements.indy.txt
-
-COPY aries_cloudagent ./aries_cloudagent
-COPY aries-acapy-plugin-toolbox ./aries-acapy-plugin-toolbox
-COPY aries-services-plugin/services ./aries-acapy-plugin-toolbox/services
-COPY bin ./bin
-COPY README.md ./
-COPY setup.py ./
-COPY startup.sh ./
-
 USER root
 
 RUN pip3 install --no-cache-dir -e ".[indy]"
@@ -57,3 +45,15 @@ RUN tar xzvf libsovtoken.tar.gz; \
         cd libsovtoken-1.0.1/libsovtoken; \
         cargo build
 ENV LIBSOVTOKEN=/home/indy/libsovtoken-1.0.1/libsovtoken/target/debug/libsovtoken.so
+
+ADD requirements*.txt ./
+
+RUN pip3 install --no-cache-dir -r requirements.txt -r requirements.dev.txt -r requirements.indy.txt
+
+COPY aries_cloudagent ./aries_cloudagent
+COPY aries-acapy-plugin-toolbox ./aries-acapy-plugin-toolbox
+COPY aries-services-plugin/services ./aries-acapy-plugin-toolbox/services
+COPY bin ./bin
+COPY README.md ./
+COPY setup.py ./
+COPY startup.sh ./
